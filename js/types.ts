@@ -88,6 +88,8 @@ export interface User {
   username: string;
   name: string;
   roleId: string;
+  companyIds: string[];
+  password: string;
 }
 
 // ─── Business Partners ───
@@ -409,4 +411,43 @@ export interface AppState {
   payments: Payment[];
   stockEntries: StockEntry[];
   journalEntries: JournalEntry[];
+}
+
+// ─── Store Interface (Dependency Inversion — views depend on this, not the class) ───
+export interface IStore {
+  // State access
+  getSettings(): Settings;
+  getCompanies(): Company[];
+  getPartners(): Partners[];
+  getWarehouses(): Warehouse[];
+  getItems(): Item[];
+  getUsers(): User[];
+  getRoles(): Role[];
+  getCurrentUser(): User | undefined;
+  getCurrentRole(): Role | undefined;
+
+  // Auth
+  login(username: string, password: string): User;
+  logout(): void;
+  isLoggedIn(): boolean;
+  checkPermission(module: string, action: string): boolean;
+
+  // Documents
+  getSalesOrders(): SalesOrder[];
+  getDeliveries(): DeliveryNote[];
+  getSalesInvoices(): SalesInvoice[];
+  getPurchaseOrders(): PurchaseOrder[];
+  getGoodsReceipts(): GoodsReceiptNote[];
+  getPurchaseInvoices(): PurchaseInvoice[];
+  getPayments(): Payment[];
+  getJournalEntries(): JournalEntry[];
+
+  // Inventory
+  getUOMConversions(): UOMConversion[];
+  getProductCategories(): string[];
+  generateSKU(): string;
+
+  // Mutations
+  saveState(): void;
+  resetDatabase(): void;
 }

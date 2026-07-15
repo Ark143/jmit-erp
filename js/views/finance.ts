@@ -200,18 +200,10 @@ function renderPaymentForm(container) {
     }
   });
 
-  // Handle prefill parameter
+  // Auto-select bill if coming from invoice creation flow
   if (prefillBillId) {
     invoiceSelect.value = prefillBillId;
-    const inv = invoices.find(i => i.id === prefillBillId);
-    if (inv) {
-      amountInput.value = inv.total;
-      if (type === "Pay") {
-        partnerSelect.value = inv.vendorId;
-      } else {
-        partnerSelect.value = inv.customerId;
-      }
-    }
+    invoiceSelect.dispatchEvent(new Event("change"));
   }
 
   form.addEventListener("submit", (e) => {

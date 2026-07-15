@@ -18,6 +18,12 @@ export function renderInventory(container, pathParts) {
         <button class="settings-tab-btn ${subPage === 'stock-entries' ? 'active' : ''}" onclick="window.location.hash='#inventory/stock-entries'">
           🔄 Stock Entries & Movements
         </button>
+        <button class="settings-tab-btn ${subPage === 'uom' ? 'active' : ''}" onclick="window.location.hash='#inventory/uom'">
+          📐 UOM & Conversions
+        </button>
+        <button class="settings-tab-btn ${subPage === 'categories' ? 'active' : ''}" onclick="window.location.hash='#inventory/categories'">
+          🏷️ Categories
+        </button>
       </div>
 
       <div id="inventory-content-viewport"></div>
@@ -37,6 +43,10 @@ export function renderInventory(container, pathParts) {
     } else {
       renderStockEntriesList(viewport);
     }
+  } else if (subPage === "uom") {
+    renderUOMConversions(viewport);
+  } else if (subPage === "categories") {
+    renderCategories(viewport);
   }
 }
 
@@ -133,10 +143,7 @@ function renderItemsCatalog(container) {
                 <div class="form-group">
                   <label class="form-label">Category</label>
                   <select id="item-category" class="form-control">
-                    <option value="Hardware">Hardware</option>
-                    <option value="Furniture">Furniture</option>
-                    <option value="Accessories">Accessories</option>
-                    <option value="Other">Other</option>
+                    ${store.getProductCategories().map(c => `<option value="${c}">${c}</option>`).join("")}
                   </select>
                 </div>
                 <div class="form-group">
@@ -568,4 +575,182 @@ function renderStockEntryForm(container) {
       window.showToast(err.message, "danger");
     }
   });
+}
+
+// ─── UOM & CONVERSIONS ───
+function renderUOMConversions(container) {
+  const conversions = store.getUOMConversions();
+
+  const refresh = () => renderUOMConversions(container);
+
+  container.innerHTML = `
+    <div class="card animate-fade-in">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 class="card-title">Unit of Measure & Conversion Rates</h3>
+        <button class="btn btn-primary btn-sm" id="add-uom-btn">+ Add UOM</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>From Unit</th>
+              <th>To Unit</th>
+              <th>Conversion Rate</th>
+              <th style="text-align:center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${conversions.map(c => `
+              <tr>
+                <td><strong>${c.from}</strong></td>
+                <td>${c.to}</td>
+                <td>1 ${c.from} = <strong>${c.rate}</strong> ${c.to}</td>
+                <td style="text-align:center;">
+                  <button class="btn btn-outline btn-xs edit-uom-btn" data-from="${c.from}">Edit</button>
+                  <button class="btn btn-outline btn-xs delete-uom-btn" data-from="${c.from}" style="color:var(--color-danger);margin-left:4px;">Delete</button>
+                </td>
+              </tr>
+            `).join("")}
+            ${conversions.length === 0 ? '<tr><td colspan="4" style="text-align:center;padding:24px;">No UOM conversions defined.</td></tr>' : ''}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- UOM Modal -->
+    <div id="uom-modal-overlay" class="modal-overlay" style="display:none;"></div>
+  `;
+
+  container.querySelector("#add-uom-btn").addEventListener("click", () => openUOMModal(null, refresh));
+  container.querySelectorAll(".edit-uom-btn").forEach(b => b.addEventListener("click", () => openUOMModal(b.dataset.from, refresh)));
+  container.querySelectorAll(".delete-uom-btn").forEach(b => b.addEventListener("click", () => {
+    if (confirm("Delete this UOM conversion?")) {
+      try { store.deleteUOMConversion(b.dataset.from); window.showToast("Deleted", "success"); refresh(); }
+      catch (e: any) { window.showToast(e.message, "danger"); }
+    }
+  }));
+}
+
+function openUOMModal(fromUnit, onClose) {
+  const convs = store.getUOMConversions();
+  const existing = fromUnit ? convs.find(c => c.from === fromUnit) : null;
+  const modal = document.getElementById("uom-modal-overlay");
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header">
+        <h3>${existing ? 'Edit UOM' : 'Add UOM Conversion'}</h3>
+        <button class="modal-close-btn" id="uom-modal-close">&times;</button>
+      </div>
+      <form id="uom-form">
+        <div class="form-group">
+          <label class="form-label">From Unit</label>
+          <input type="text" class="form-control" id="uom-from" value="${existing ? existing.from : ''}" placeholder="e.g. box_of_10" ${existing ? 'readonly' : ''} required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">To Unit</label>
+          <input type="text" class="form-control" id="uom-to" value="${existing ? existing.to : 'pcs'}" placeholder="e.g. pcs" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Conversion Rate</label>
+          <input type="number" class="form-control" id="uom-rate" value="${existing ? existing.rate : 1}" step="0.01" min="0.01" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px;">${existing ? 'Save' : 'Add'}</button>
+      </form>
+    </div>
+  `;
+  modal.style.display = "flex";
+  modal.querySelector("#uom-modal-close").addEventListener("click", () => { modal.style.display = "none"; });
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+
+  modal.querySelector("#uom-form").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const from = (modal.querySelector("#uom-from") as HTMLInputElement).value.trim();
+    const to = (modal.querySelector("#uom-to") as HTMLInputElement).value.trim();
+    const rate = parseFloat((modal.querySelector("#uom-rate") as HTMLInputElement).value);
+    if (!from || !to || isNaN(rate)) { window.showToast("All fields required", "warning"); return; }
+    try {
+      if (existing) { store.updateUOMConversion(fromUnit, { to, rate }); window.showToast("Updated", "success"); }
+      else { store.addUOMConversion({ from, to, rate }); window.showToast("Added", "success"); }
+      modal.style.display = "none";
+      onClose();
+    } catch (e: any) { window.showToast(e.message, "danger"); }
+  });
+}
+
+// ─── PRODUCT CATEGORIES ───
+function renderCategories(container) {
+  const categories = store.getProductCategories();
+  const refresh = () => renderCategories(container);
+
+  container.innerHTML = `
+    <div class="card animate-fade-in">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 class="card-title">Product Categories</h3>
+        <button class="btn btn-primary btn-sm" id="add-cat-btn">+ Add Category</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Category Name</th><th style="text-align:center;">Actions</th></tr></thead>
+          <tbody>
+            ${categories.map(c => `
+              <tr>
+                <td><strong>${c}</strong></td>
+                <td style="text-align:center;">
+                  <button class="btn btn-outline btn-xs edit-cat-btn" data-name="${c}">Edit</button>
+                  <button class="btn btn-outline btn-xs delete-cat-btn" data-name="${c}" style="color:var(--color-danger);margin-left:4px;">Delete</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="cat-modal-overlay" class="modal-overlay" style="display:none;"></div>
+  `;
+
+  const catModal = container.querySelector("#cat-modal-overlay") as HTMLElement;
+
+  container.querySelector("#add-cat-btn").addEventListener("click", () => {
+    catModal.innerHTML = `<div class="modal-content" style="max-width:380px;">
+      <div class="modal-header"><h3>Add Category</h3><button class="modal-close-btn" id="cat-close">&times;</button></div>
+      <form id="cat-form"><div class="form-group"><label class="form-label">Category Name</label>
+      <input type="text" class="form-control" id="cat-name" placeholder="e.g. Electronics" required /></div>
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px;">Add</button></form></div>`;
+    catModal.style.display = "flex";
+    catModal.querySelector("#cat-close").addEventListener("click", () => catModal.style.display = "none");
+    catModal.querySelector("#cat-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const name = (catModal.querySelector("#cat-name") as HTMLInputElement).value.trim();
+      try { store.addCategory(name); catModal.style.display = "none"; window.showToast("Added", "success"); refresh(); }
+      catch (e: any) { window.showToast(e.message, "danger"); }
+    });
+  });
+
+  container.querySelectorAll(".edit-cat-btn").forEach(b => {
+    const oldName = b.dataset.name;
+    b.addEventListener("click", () => {
+      catModal.innerHTML = `<div class="modal-content" style="max-width:380px;">
+        <div class="modal-header"><h3>Edit Category</h3><button class="modal-close-btn" id="cat-close">&times;</button></div>
+        <form id="cat-form"><div class="form-group"><label class="form-label">Category Name</label>
+        <input type="text" class="form-control" id="cat-name" value="${oldName}" required /></div>
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px;">Save</button></form></div>`;
+      catModal.style.display = "flex";
+      catModal.querySelector("#cat-close").addEventListener("click", () => catModal.style.display = "none");
+      catModal.querySelector("#cat-form").addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const newName = (catModal.querySelector("#cat-name") as HTMLInputElement).value.trim();
+        try { store.updateCategory(oldName, newName); catModal.style.display = "none"; window.showToast("Updated", "success"); refresh(); }
+        catch (e: any) { window.showToast(e.message, "danger"); }
+      });
+    });
+  });
+
+  container.querySelectorAll(".delete-cat-btn").forEach(b => b.addEventListener("click", () => {
+    if (confirm("Delete this category?")) {
+      try { store.deleteCategory(b.dataset.name); window.showToast("Deleted", "success"); refresh(); }
+      catch (e: any) { window.showToast(e.message, "danger"); }
+    }
+  }));
 }

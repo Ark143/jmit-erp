@@ -137,8 +137,71 @@ function syncMegaMenuSelection(hash) {
         }
     }
 }
+function showLogin() {
+    const overlay = document.getElementById("login-overlay");
+    overlay.style.display = "flex";
+    const app = document.querySelector(".app-container");
+    if (app)
+        app.style.display = "none";
+    const hdr = document.querySelector(".top-header");
+    if (hdr)
+        hdr.style.display = "none";
+    const sb = document.querySelector(".sidebar");
+    if (sb)
+        sb.style.display = "none";
+}
+function initLogin() {
+    const form = document.getElementById("login-form");
+    if (!form)
+        return;
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const username = document.getElementById("login-username").value.trim();
+        const password = document.getElementById("login-password").value;
+        const errEl = document.getElementById("login-error");
+        try {
+            store.login(username, password);
+            errEl.style.display = "none";
+            window.location.hash = "#dashboard";
+            router();
+        }
+        catch (err) {
+            errEl.textContent = err.message;
+            errEl.style.display = "block";
+        }
+    });
+    // Enter key on password field should submit
+    document.getElementById("login-password").addEventListener("keydown", (e) => {
+        if (e.key === "Enter")
+            form.dispatchEvent(new Event("submit"));
+    });
+}
+// Add logout to sidebar
+function addLogoutButton() {
+    const sidebar = document.querySelector(".sidebar");
+    if (!sidebar || document.getElementById("logout-btn"))
+        return;
+    const btn = document.createElement("button");
+    btn.id = "logout-btn";
+    btn.className = "btn btn-outline";
+    btn.style.cssText = "margin:12px;width:calc(100% - 24px);color:var(--color-danger);border-color:var(--color-danger);";
+    btn.innerHTML = '<span style="display:flex;align-items:center;gap:6px;">🚪 Logout</span>';
+    btn.addEventListener("click", () => {
+        store.logout();
+        window.location.hash = "";
+        showLogin();
+    });
+    sidebar.appendChild(btn);
+}
 // Routing engine parsing nested path arrays: [module, page, action, id] with Security Guards
 function router() {
+    // Login gate
+    if (!store.isLoggedIn()) {
+        showLogin();
+        return;
+    }
+    document.getElementById("login-overlay").style.display = "none";
+    document.querySelector(".app-container").style.display = "flex";
     const hash = window.location.hash.replace("#", "") || "dashboard";
     const pathParts = hash.split("/").map(p => p.split("?")[0]);
     const primaryModule = pathParts[0];
@@ -303,10 +366,19 @@ window.addEventListener("erp-state-updated", () => {
 });
 // Initialization
 document.addEventListener("DOMContentLoaded", () => {
+    initLogin();
+    // Auto-login for testing: add ?autologin=1 to URL
+    if (window.location.search.includes("autologin=1")) {
+        try {
+            store.login("admin", "jmit2026");
+        }
+        catch (e) { /* ignore */ }
+    }
     initMegaMenuUI();
     initUserSwitcher();
     filterSidebarMenuItems();
     updateHeaderKPIs();
+    addLogoutButton();
     window.addEventListener("hashchange", router);
     router();
     setTimeout(() => {

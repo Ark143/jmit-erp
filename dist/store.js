@@ -45,15 +45,16 @@ const DEFAULT_STATE = {
             piSubmission: true,
             paymentSubmission: true,
             journalSubmission: true
-        }
+        },
+        productCategories: ["Hardware", "Furniture", "Accessories", "Services", "Fixed Asset", "Other"]
     },
     // Security Roles & Access Control (CRUD Level Permissions)
     users: [
-        { id: "usr_admin", username: "admin", name: "System Administrator", roleId: "role_admin" },
-        { id: "usr_sales", username: "sales_mgr", name: "Sales Manager", roleId: "role_sales" },
-        { id: "usr_purch", username: "purch_mgr", name: "Purchase Manager", roleId: "role_purch" },
-        { id: "usr_inventory", username: "inventory_clerk", name: "Inventory Clerk", roleId: "role_inventory" },
-        { id: "usr_accountant", username: "accountant", name: "Chief Accountant", roleId: "role_accounting" }
+        { id: "usr_admin", username: "admin", name: "System Administrator", roleId: "role_admin", companyIds: ["CMP001", "CMP002"], password: "jmit2026" },
+        { id: "usr_sales", username: "sales_mgr", name: "Sales Manager", roleId: "role_sales", companyIds: ["CMP001"], password: "jmit2026" },
+        { id: "usr_purch", username: "purch_mgr", name: "Purchase Manager", roleId: "role_purch", companyIds: ["CMP001"], password: "jmit2026" },
+        { id: "usr_inventory", username: "inventory_clerk", name: "Inventory Clerk", roleId: "role_inventory", companyIds: ["CMP001", "CMP002"], password: "jmit2026" },
+        { id: "usr_accountant", username: "accountant", name: "Chief Accountant", roleId: "role_accounting", companyIds: ["CMP001", "CMP002"], password: "jmit2026" }
     ],
     roles: [
         {
@@ -117,7 +118,7 @@ const DEFAULT_STATE = {
             }
         }
     ],
-    currentUser: "usr_admin",
+    currentUser: null,
     // Business Partner Registries
     partners: {
         leads: [
@@ -142,7 +143,11 @@ const DEFAULT_STATE = {
         { id: "ITM001", sku: "JMIT-1001-HW", name: "Enterprise Laptop Pro", category: "Hardware", uom: "pcs", cost: 800, price: 1200, stocks: { WH001: 25, WH002: 20 }, reorder: 10 },
         { id: "ITM002", sku: "JMIT-1002-HW", name: "Ergonomic Office Chair", category: "Furniture", uom: "pcs", cost: 150, price: 299, stocks: { WH001: 10, WH002: 5 }, reorder: 5 },
         { id: "ITM003", sku: "JMIT-1003-HW", name: "Mechanical Keyboard", category: "Accessories", uom: "pcs", cost: 60, price: 129, stocks: { WH001: 8, WH002: 0 }, reorder: 10 },
-        { id: "ITM004", sku: "JMIT-1004-HW", name: "4K UltraWide Monitor", category: "Hardware", uom: "pcs", cost: 350, price: 599, stocks: { WH001: 12, WH002: 10 }, reorder: 5 }
+        { id: "ITM004", sku: "JMIT-1004-HW", name: "4K UltraWide Monitor", category: "Hardware", uom: "pcs", cost: 350, price: 599, stocks: { WH001: 12, WH002: 10 }, reorder: 5 },
+        { id: "ITM005", sku: "JMIT-1005-SV", name: "IT Consulting (Hourly)", category: "Services", uom: "hrs", cost: 0, price: 150, stocks: {}, reorder: 0 },
+        { id: "ITM006", sku: "JMIT-1006-SV", name: "Cloud Hosting (Monthly)", category: "Services", uom: "mo", cost: 0, price: 500, stocks: {}, reorder: 0 },
+        { id: "ITM007", sku: "JMIT-1007-FA", name: "Industrial Generator", category: "Fixed Asset", uom: "pcs", cost: 5000, price: 7500, stocks: { WH001: 3 }, reorder: 1 },
+        { id: "ITM008", sku: "JMIT-1008-FA", name: "Server Rack Cabinet", category: "Fixed Asset", uom: "pcs", cost: 2000, price: 3200, stocks: { WH001: 5 }, reorder: 2 }
     ],
     // UOM Conversion dictionary (standard ratios relative to default 'pcs')
     uomConversions: [
@@ -283,6 +288,30 @@ class Store {
                     this.state.settings.workflowRequirements = JSON.parse(JSON.stringify(DEFAULT_STATE.settings.workflowRequirements));
                     this.saveState();
                 }
+                // Migrate: add companyIds to users that don't have it
+                if (this.state.users) {
+                    let migrated = false;
+                    this.state.users.forEach(u => {
+                        if (!u.companyIds) {
+                            u.companyIds = [this.state.settings.activeCompany || "CMP001"];
+                            migrated = true;
+                        }
+                    });
+                    if (migrated)
+                        this.saveState();
+                }
+                // Migrate: add password to users that don't have it
+                if (this.state.users) {
+                    let pwMigrated = false;
+                    this.state.users.forEach(u => {
+                        if (!u.password) {
+                            u.password = "jmit2026";
+                            pwMigrated = true;
+                        }
+                    });
+                    if (pwMigrated)
+                        this.saveState();
+                }
             }
             else {
                 this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -319,6 +348,54 @@ class Store {
     getAccounts() { return this.state.accounts; }
     getFixedAssets() { return this.state.fixedAssets; }
     getUOMConversions() { return this.state.uomConversions; }
+    getProductCategories() { return this.state.settings.productCategories || []; }
+    addCategory(name) {
+        const cats = this.state.settings.productCategories;
+        if (cats.includes(name))
+            throw new Error("Category already exists");
+        cats.push(name);
+        this.saveState();
+    }
+    updateCategory(oldName, newName) {
+        const cats = this.state.settings.productCategories;
+        const idx = cats.indexOf(oldName);
+        if (idx === -1)
+            throw new Error("Category not found");
+        // Update all items with this category
+        this.state.items.forEach(item => { if (item.category === oldName)
+            item.category = newName; });
+        cats[idx] = newName;
+        this.saveState();
+    }
+    deleteCategory(name) {
+        const cats = this.state.settings.productCategories;
+        const idx = cats.indexOf(name);
+        if (idx === -1)
+            throw new Error("Category not found");
+        const used = this.state.items.filter(i => i.category === name);
+        if (used.length > 0)
+            throw new Error(`Cannot delete: ${used.length} item(s) use this category`);
+        cats.splice(idx, 1);
+        this.saveState();
+    }
+    addUOMConversion(conv) {
+        this.state.uomConversions.push(conv);
+        this.saveState();
+    }
+    updateUOMConversion(fromUnit, fields) {
+        const c = this.state.uomConversions.find(x => x.from === fromUnit);
+        if (!c)
+            throw new Error("UOM not found");
+        Object.assign(c, fields);
+        this.saveState();
+    }
+    deleteUOMConversion(fromUnit) {
+        const idx = this.state.uomConversions.findIndex(x => x.from === fromUnit);
+        if (idx === -1)
+            throw new Error("UOM not found");
+        this.state.uomConversions.splice(idx, 1);
+        this.saveState();
+    }
     // Ledger and documents
     getJournalEntries() { return this.state.journalEntries; }
     getSalesOrders() { return this.state.salesOrders; }
@@ -342,6 +419,21 @@ class Store {
     setCurrentUser(userId) {
         this.state.currentUser = userId;
         this.saveState();
+    }
+    login(username, password) {
+        const user = this.state.users.find(u => u.username === username && u.password === password);
+        if (!user)
+            throw new Error("Invalid username or password");
+        this.state.currentUser = user.id;
+        this.saveState();
+        return user;
+    }
+    logout() {
+        this.state.currentUser = null;
+        this.saveState();
+    }
+    isLoggedIn() {
+        return !!this.state.currentUser && !!this.getCurrentUser();
     }
     checkPermission(module, action) {
         const role = this.getCurrentRole();
@@ -648,7 +740,7 @@ class Store {
         const reqs = this.state.settings.workflowRequirements || {};
         const newSo = {
             id,
-            companyId: this.state.settings.activeCompany,
+            companyId: soData.companyId || this.state.settings.activeCompany,
             customerId: soData.customerId,
             customerName: cust ? cust.name : "Unknown",
             date,
@@ -941,8 +1033,7 @@ class Store {
         const reqs = this.state.settings.workflowRequirements || {};
         const newPo = {
             id,
-            companyId: this.state.settings.activeCompany,
-            vendorId: poData.vendorId,
+            companyId: poData.companyId || this.state.settings.activeCompany,
             vendorName: vend ? vend.name : "Unknown",
             date,
             items,
@@ -988,7 +1079,7 @@ class Store {
             vendorId: po.vendorId,
             vendorName: po.vendorName,
             date,
-            items: grnData.items,
+            items: grnData.items.map(l => ({ itemId: l.itemId, sku: this.getItem(l.itemId).sku, acceptedQty: Number(l.acceptedQty), rejectedQty: Number(l.rejectedQty), uom: l.uom })),
             warehouseId: grnData.warehouseId,
             status: (reqs.grnSubmission === false) ? "Submitted" : "Draft"
         };
@@ -1206,8 +1297,7 @@ class Store {
         const newPay = {
             id,
             type: payData.type,
-            companyId: this.state.settings.activeCompany,
-            partnerId: payData.partnerId,
+            companyId: payData.companyId || this.state.settings.activeCompany,
             partnerName: this.getPartner(payData.partnerId).name,
             referenceInvoiceId: payData.referenceInvoiceId || "",
             reference: payData.reference,
@@ -1217,6 +1307,19 @@ class Store {
             rate: Number(payData.rate) || 1.0,
             status: (reqs.paymentSubmission === false) ? "Posted" : "Draft"
         };
+        // Always update invoice status when payment references an invoice
+        if (payData.referenceInvoiceId) {
+            if (payData.type === "Receive") {
+                const inv = this.state.salesInvoices.find(s => s.id === payData.referenceInvoiceId);
+                if (inv)
+                    inv.status = "Paid";
+            }
+            else {
+                const inv = this.state.purchaseInvoices.find(p => p.id === payData.referenceInvoiceId);
+                if (inv)
+                    inv.status = "Paid";
+            }
+        }
         if (reqs.paymentSubmission === false) {
             const maps = this.state.settings.glMappings;
             const baseAmt = this.convertToBase(payData.amount, payData.currency);

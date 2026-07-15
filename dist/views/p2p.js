@@ -109,8 +109,21 @@ function renderPurchaseOrderForm(container) {
       </div>
 
       <form id="purchase-order-form">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label">Transaction Type</label>
+          <select id="po-transtype" class="form-control" style="max-width:250px;">
+            <option value="Goods">Goods (Inventory Items)</option>
+            <option value="Services">Services (Non-Inventory)</option>
+          </select>
+        </div>
         <div class="grid-2">
           <div>
+            <div class="form-group">
+              <label class="form-label">Company</label>
+              <select id="po-company" class="form-control" required>
+                ${store.getCompanies().map(c => `<option value="${c.id}" ${c.id === activeCompany.id ? 'selected' : ''}>${c.name}</option>`).join("")}
+              </select>
+            </div>
             <div class="form-group">
               <label class="form-label">Supplier Vendor</label>
               <select id="po-vendor" class="form-control" required>
@@ -265,6 +278,7 @@ function renderPurchaseOrderForm(container) {
         });
         try {
             const poData = {
+                companyId: form.querySelector("#po-company").value,
                 vendorId: vendorSelect.value,
                 date: form.querySelector("#po-date").value,
                 items: lines,
@@ -442,7 +456,7 @@ function renderGoodsReceiptForm(container) {
                 date: new Date().toISOString().split("T")[0]
             });
             window.showToast(`Goods Receipt Note successfully compiled. Accepted stock added to warehouse inventory.`, "success");
-            window.location.hash = `#p2p/purchase-orders`;
+            window.location.hash = `#p2p/invoices/new?po=${po.id}`;
         }
         catch (err) {
             window.showToast(err.message, "danger");
@@ -525,6 +539,45 @@ function renderPurchaseInvoiceForm(container) {
           </div>
         </div>
 
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 10px;">Items from Goods Receipt</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Description</th>
+                <th>Accepted Qty</th>
+                <th>Unit Cost</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${grn ? grn.items.map(li => {
+        const item = store.getItem(li.itemId);
+        const poItem = po.items.find(pi => pi.itemId === li.itemId);
+        const cost = poItem ? poItem.cost : (item ? item.cost : 0);
+        return `
+                  <tr>
+                    <td style="font-family:monospace;">${li.sku}</td>
+                    <td>${item ? item.name : li.itemId}</td>
+                    <td>${li.acceptedQty} ${li.uom}</td>
+                    <td>$${cost.toFixed(2)}</td>
+                    <td style="font-weight:700;">$${(li.acceptedQty * cost).toFixed(2)}</td>
+                  </tr>
+                `;
+    }).join("") : po.items.map(item => `
+                  <tr>
+                    <td style="font-family:monospace;">${item.sku}</td>
+                    <td>${item.name}</td>
+                    <td>${item.qty} ${item.uom}</td>
+                    <td>$${item.cost.toFixed(2)}</td>
+                    <td style="font-weight:700;">$${(item.qty * item.cost).toFixed(2)}</td>
+                  </tr>
+              `)}
+            </tbody>
+          </table>
+        </div>
+
         <div style="margin-top: 20px; border: 1px solid var(--border-color); padding: 14px; border-radius: var(--radius-sm); background-color: rgba(255,255,255,0.01);">
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span>Gross billed items:</span>
@@ -545,12 +598,12 @@ function renderPurchaseInvoiceForm(container) {
     container.querySelector("#purchase-invoice-form").addEventListener("submit", (e) => {
         e.preventDefault();
         try {
-            store.createPurchaseInvoice({
+            const pi = store.createPurchaseInvoice({
                 purchaseOrderId: po.id,
                 date: new Date().toISOString().split("T")[0]
             });
             window.showToast("Supplier Invoice (Purchase Bill) registered and accounts payable posted to ledger.", "success");
-            window.location.hash = "#p2p/invoices";
+            window.location.hash = `#accounting/payments/new?type=Pay&bill=${pi.id}`;
         }
         catch (err) {
             window.showToast(err.message, "danger");

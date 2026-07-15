@@ -154,6 +154,37 @@ function renderConfig(container) {
           <button id="add-period-btn" class="btn btn-outline btn-sm">Create New Period</button>
         </div>
 
+        <!-- Default Currency & Exchange Rates -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Default Currency & Exchange Rates</h3>
+          </div>
+          <form id="currency-form">
+            <div class="form-group">
+              <label class="form-label">System Default Currency</label>
+              <select id="active-currency-select" class="form-control">
+                <option value="USD" ${settings.activeCurrency === 'USD' ? 'selected' : ''}>USD ($) - US Dollar</option>
+                <option value="PHP" ${settings.activeCurrency === 'PHP' ? 'selected' : ''}>PHP (₱) - Philippine Peso</option>
+                <option value="EUR" ${settings.activeCurrency === 'EUR' ? 'selected' : ''}>EUR (€) - Euro</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Exchange Rates (relative to 1 USD)</label>
+              <div id="rates-list" style="display:flex;flex-direction:column;gap:6px;">
+                ${Object.entries(settings.exchangeRates).map(([code, rate]) => `
+                  <div class="rate-row" style="display:flex;gap:6px;align-items:center;">
+                    <input type="text" class="form-control rate-code" value="${code}" style="width:80px;" placeholder="Code" readonly />
+                    <input type="number" class="form-control rate-value" value="${rate}" step="0.0001" style="width:120px;" />
+                    <button type="button" class="btn btn-outline btn-sm delete-rate-btn" style="color:var(--color-danger);flex-shrink:0;">×</button>
+                  </div>
+                `).join("")}
+              </div>
+              <button type="button" id="add-rate-btn" class="btn btn-outline btn-sm" style="margin-top:8px;">+ Add Rate</button>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Save Currency Settings</button>
+          </form>
+        </div>
+
         <!-- GL Account Mappings tagging -->
         <div class="card">
           <div class="card-header">
@@ -244,6 +275,40 @@ function renderConfig(container) {
     });
     store.saveState();
     window.showToast("Default GL mapping definitions saved successfully.", "success");
+  });
+
+  // Currency & Exchange Rates
+  container.querySelector("#currency-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const currency = (container.querySelector("#active-currency-select") as HTMLSelectElement).value;
+    const rates: Record<string, number> = {};
+    container.querySelectorAll(".rate-row").forEach((row: HTMLElement) => {
+      const code = (row.querySelector(".rate-code") as HTMLInputElement).value.trim();
+      const val = parseFloat((row.querySelector(".rate-value") as HTMLInputElement).value);
+      if (code && !isNaN(val)) rates[code] = val;
+    });
+    store.updateSettings({ activeCurrency: currency, exchangeRates: rates });
+    window.showToast("Currency settings saved.", "success");
+  });
+
+  container.querySelector("#add-rate-btn").addEventListener("click", () => {
+    const list = container.querySelector("#rates-list");
+    const row = document.createElement("div");
+    row.className = "rate-row";
+    row.style.cssText = "display:flex;gap:6px;align-items:center;";
+    row.innerHTML = `
+      <input type="text" class="form-control rate-code" placeholder="Code" style="width:80px;" />
+      <input type="number" class="form-control rate-value" step="0.0001" value="1.0" style="width:120px;" />
+      <button type="button" class="btn btn-outline btn-sm delete-rate-btn" style="color:var(--color-danger);flex-shrink:0;">×</button>
+    `;
+    list.appendChild(row);
+    row.querySelector(".delete-rate-btn").addEventListener("click", () => row.remove());
+  });
+
+  container.querySelectorAll(".delete-rate-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      (e.target as HTMLElement).closest(".rate-row")?.remove();
+    });
   });
 
   // Add Company Wizard
@@ -673,6 +738,7 @@ function renderUsers(container) {
                 <th>Name</th>
                 <th>Username</th>
                 <th>Assigned Role</th>
+                <th>Companies</th>
                 <th style="text-align:center;">Actions</th>
               </tr>
             </thead>
@@ -680,11 +746,14 @@ function renderUsers(container) {
               ${users.map(u => {
                 const role = roles.find(r => r.id === u.roleId);
                 const isCurrent = u.id === currentUserId;
+                const companies = store.getCompanies();
+                const userCompanies = (u.companyIds || []).map(cid => companies.find(c => c.id === cid)).filter(Boolean);
                 return `
                   <tr>
                     <td><strong>${u.name}</strong>${isCurrent ? ' <span style="color:var(--color-primary);font-size:0.75rem;">(you)</span>' : ''}</td>
                     <td>${u.username}</td>
                     <td><span class="badge badge-purple">${role ? role.name : 'No Role'}</span></td>
+                    <td>${userCompanies.length > 0 ? userCompanies.map(c => `<span class="badge badge-blue" style="font-size:0.65rem;margin-right:2px;">${c.name}</span>`).join("") : '<span style="color:var(--color-muted);">—</span>'}</td>
                     <td style="text-align:center;">
                       <button class="btn btn-outline btn-xs edit-user-btn" data-userid="${u.id}">Edit</button>
                       ${!isCurrent ? `<button class="btn btn-outline btn-xs delete-user-btn" data-userid="${u.id}" style="color:var(--color-danger);margin-left:4px;">Delete</button>` : ''}
@@ -692,7 +761,7 @@ function renderUsers(container) {
                   </tr>
                 `;
               }).join("")}
-              ${users.length === 0 ? `<tr><td colspan="4" style="text-align:center;padding:24px;">No users configured.</td></tr>` : ''}
+              ${users.length === 0 ? `<tr><td colspan="5" style="text-align:center;padding:24px;">No users configured.</td></tr>` : ''}
             </tbody>
           </table>
         </div>
@@ -835,10 +904,19 @@ function renderUsers(container) {
 function openUserModal(userId, onClose) {
   const users = store.getUsers();
   const roles = store.getRoles();
+  const companies = store.getCompanies();
   const existing = userId ? users.find(u => u.id === userId) : null;
+  const userCompanyIds = existing ? (existing.companyIds || []) : [];
 
   const modal = document.getElementById("user-modal-overlay");
   if (!modal) return;
+
+  const companyCheckboxes = companies.map(c => {
+    const checked = userCompanyIds.includes(c.id);
+    return `<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-right:12px;font-size:0.8rem;">
+      <input type="checkbox" class="user-company-cb" value="${c.id}" ${checked ? 'checked' : ''} /> ${c.name}
+    </label>`;
+  }).join("");
 
   modal.innerHTML = `
     <div class="modal-content" style="max-width:480px;">
@@ -856,11 +934,21 @@ function openUserModal(userId, onClose) {
           <input type="text" class="form-control" id="user-username" value="${existing ? existing.username : ''}" required />
         </div>
         <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-control" id="user-password" value="${existing ? existing.password : ''}" required />
+        </div>
+        <div class="form-group">
           <label class="form-label">Assigned Role</label>
           <select class="form-control" id="user-role" required>
             <option value="">— Select Role —</option>
             ${roles.map(r => `<option value="${r.id}" ${existing && existing.roleId === r.id ? 'selected' : ''}>${r.name}</option>`).join("")}
           </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tag to Companies</label>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;padding:8px;border:1px solid var(--border-color);border-radius:var(--radius-sm);">
+            ${companyCheckboxes || '<span style="color:var(--color-muted);font-size:0.8rem;">No companies configured</span>'}
+          </div>
         </div>
         <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px;">
           ${existing ? 'Save Changes' : 'Create User'}
@@ -877,19 +965,25 @@ function openUserModal(userId, onClose) {
     ev.preventDefault();
     const name = (modal.querySelector("#user-name") as HTMLInputElement).value.trim();
     const username = (modal.querySelector("#user-username") as HTMLInputElement).value.trim();
+    const password = (modal.querySelector("#user-password") as HTMLInputElement).value.trim();
     const roleId = (modal.querySelector("#user-role") as HTMLSelectElement).value;
 
-    if (!name || !username || !roleId) {
+    if (!name || !username || !password || !roleId) {
       window.showToast("All fields required", "warning");
       return;
     }
 
+    const companyIds: string[] = [];
+    modal.querySelectorAll(".user-company-cb").forEach((cb: HTMLInputElement) => {
+      if (cb.checked) companyIds.push(cb.value);
+    });
+
     try {
       if (existing) {
-        store.updateUser(userId, { name, username, roleId });
+        store.updateUser(userId, { name, username, password, roleId, companyIds });
         window.showToast("User updated", "success");
       } else {
-        store.addUser({ id: "usr_" + Date.now(), username, name, roleId });
+        store.addUser({ id: "usr_" + Date.now(), username, password, name, roleId, companyIds });
         window.showToast("User created", "success");
       }
       modal.style.display = "none";

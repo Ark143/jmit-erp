@@ -191,6 +191,34 @@
   <!-- Toast Notification Center -->
   <div class="toast-container" id="toast-container"></div>
 
+  <!-- Login Overlay -->
+  <div id="login-overlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:40px; max-width:400px; width:90%; text-align:center;">
+      <div style="margin-bottom:24px;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" fill="url(#brand-grad)"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.5" fill="url(#brand-grad)" opacity="0.8"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.5" fill="url(#brand-grad)" opacity="0.6"/>
+          <rect x="14" y="14" width="7" height="7" rx="1.5" fill="url(#brand-grad)" opacity="0.4"/>
+        </svg>
+      </div>
+      <h2 style="margin-bottom:4px;">JMIT ERP</h2>
+      <p style="color:var(--color-muted);font-size:0.85rem;margin-bottom:24px;">Sign in to your account</p>
+      <form id="login-form">
+        <div class="form-group" style="text-align:left;">
+          <label class="form-label">Username</label>
+          <input type="text" id="login-username" class="form-control" placeholder="Enter username" required autocomplete="username" />
+        </div>
+        <div class="form-group" style="text-align:left;">
+          <label class="form-label">Password</label>
+          <input type="password" id="login-password" class="form-control" placeholder="Enter password" required autocomplete="current-password" />
+        </div>
+        <div id="login-error" style="color:var(--color-danger);font-size:0.8rem;margin-bottom:8px;display:none;"></div>
+        <button type="submit" class="btn btn-primary btn-block" style="width:100%;">Sign In</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Central Store & Routing Script Injection -->
   <script type="module" src="dist/app.js"></script>
 </body>

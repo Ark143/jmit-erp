@@ -107,8 +107,21 @@ function renderSalesOrderForm(container) {
       </div>
       
       <form id="sales-order-form">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label">Transaction Type</label>
+          <select id="so-transtype" class="form-control" style="max-width:250px;">
+            <option value="Goods">Goods (Inventory Items)</option>
+            <option value="Services">Services (Non-Inventory)</option>
+          </select>
+        </div>
         <div class="grid-2">
           <div>
+            <div class="form-group">
+              <label class="form-label">Company</label>
+              <select id="so-company" class="form-control" required>
+                ${store.getCompanies().map(c => `<option value="${c.id}" ${c.id === activeCompany.id ? 'selected' : ''}>${c.name}</option>`).join("")}
+              </select>
+            </div>
             <div class="form-group">
               <label class="form-label">Customer Company</label>
               <select id="so-customer" class="form-control" required>
@@ -279,6 +292,7 @@ function renderSalesOrderForm(container) {
         });
         try {
             const soData = {
+                companyId: form.querySelector("#so-company").value,
                 customerId: customerSelect.value,
                 date: form.querySelector("#so-date").value,
                 items: lines,
@@ -565,7 +579,7 @@ function renderDeliveryForm(container) {
                 date: new Date().toISOString().split("T")[0]
             });
             window.showToast(`Delivery dispatch successfully issued from ${store.getWarehouse(warehouseId).name}`, "success");
-            window.location.hash = `#o2c/sales-orders/view/${so.id}`;
+            window.location.hash = `#o2c/invoices/new?so=${so.id}`;
         }
         catch (err) {
             window.showToast(err.message, "danger");
@@ -651,6 +665,45 @@ function renderInvoiceForm(container) {
           </div>
         </div>
 
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 10px;">Items from Delivery Note</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Description</th>
+                <th>Qty Shipped</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dn ? dn.items.map(li => {
+        const item = store.getItem(li.itemId);
+        const soItem = so.items.find(si => si.itemId === li.itemId);
+        const price = soItem ? soItem.price : (item ? item.price : 0);
+        return `
+                  <tr>
+                    <td style="font-family:monospace;">${li.sku}</td>
+                    <td>${item ? item.name : li.itemId}</td>
+                    <td>${li.qty} ${li.uom}</td>
+                    <td>$${price.toFixed(2)}</td>
+                    <td style="font-weight:700;">$${(li.qty * price).toFixed(2)}</td>
+                  </tr>
+                `;
+    }).join("") : so.items.map(item => `
+                  <tr>
+                    <td style="font-family:monospace;">${item.sku}</td>
+                    <td>${item.name}</td>
+                    <td>${item.qty} ${item.uom}</td>
+                    <td>$${item.price.toFixed(2)}</td>
+                    <td style="font-weight:700;">$${(item.qty * item.price).toFixed(2)}</td>
+                  </tr>
+              `)}
+            </tbody>
+          </table>
+        </div>
+
         <div style="margin-top: 20px; border: 1px solid var(--border-color); padding: 14px; border-radius: var(--radius-sm); background-color: rgba(255,255,255,0.01);">
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span>Sales Revenue Subtotal:</span>
@@ -679,13 +732,13 @@ function renderInvoiceForm(container) {
     container.querySelector("#sales-invoice-form").addEventListener("submit", (e) => {
         e.preventDefault();
         try {
-            store.createSalesInvoice({
+            const si = store.createSalesInvoice({
                 salesOrderId: so.id,
                 deliveryNoteId: dn ? dn.id : "",
                 date: new Date().toISOString().split("T")[0]
             });
             window.showToast(`Invoice successfully created and posted to general ledger under Accounts Receivable.`, "success");
-            window.location.hash = `#o2c/invoices`;
+            window.location.hash = `#accounting/payments/new?type=Receive&bill=${si.id}`;
         }
         catch (err) {
             window.showToast(err.message, "danger");
