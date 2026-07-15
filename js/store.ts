@@ -286,6 +286,8 @@ const DEFAULT_STATE = {
 };
 
 class Store {
+  state: any;
+
   constructor() {
     this.loadState();
   }

@@ -1,17 +1,14 @@
 // JMIT ERP - Chart of Accounts Tree & Journal Ledger View Module (Phase 2)
-import { store } from "../store";
-import { renderFinance } from "./finance";
-
+import { store } from "../store.js";
+import { renderFinance } from "./finance.js";
 export function renderAccounting(container, pathParts) {
-  const subRoute = pathParts[1] || "coa";
-  const action = pathParts[2];
-
-  if (subRoute === "payments" || subRoute === "fixed-assets") {
-    renderFinance(container, pathParts);
-    return;
-  }
-
-  const html = `
+    const subRoute = pathParts[1] || "coa";
+    const action = pathParts[2];
+    if (subRoute === "payments" || subRoute === "fixed-assets") {
+        renderFinance(container, pathParts);
+        return;
+    }
+    const html = `
     <div class="accounting-container animate-fade-in">
       <!-- Sub Tab Nav -->
       <div class="settings-tab-nav">
@@ -32,45 +29,45 @@ export function renderAccounting(container, pathParts) {
       <div id="accounting-content-viewport"></div>
     </div>
   `;
-
-  container.innerHTML = html;
-  const viewport = container.querySelector("#accounting-content-viewport");
-
-  if (subRoute === "coa") {
-    renderCOATree(viewport);
-  } else if (subRoute === "journal") {
-    if (action === "new") {
-      renderJournalEntryForm(viewport);
-    } else {
-      renderJournalEntriesList(viewport);
+    container.innerHTML = html;
+    const viewport = container.querySelector("#accounting-content-viewport");
+    if (subRoute === "coa") {
+        renderCOATree(viewport);
     }
-  }
+    else if (subRoute === "journal") {
+        if (action === "new") {
+            renderJournalEntryForm(viewport);
+        }
+        else {
+            renderJournalEntriesList(viewport);
+        }
+    }
 }
-
 // --- 1. CHART OF ACCOUNTS RECURSIVE TREE VIEW ---
-
 function renderCOATree(container) {
-  const accounts = store.getAccounts();
-
-  // Recursive account tree compiler
-  const buildTreeHtml = (parentCode) => {
-    const children = accounts.filter(a => a.parentCode === parentCode);
-    if (children.length === 0) return "";
-
-    return `
+    const accounts = store.getAccounts();
+    // Recursive account tree compiler
+    const buildTreeHtml = (parentCode) => {
+        const children = accounts.filter(a => a.parentCode === parentCode);
+        if (children.length === 0)
+            return "";
+        return `
       <div class="tree-children">
         ${children.map(acct => {
-          const hasChildren = accounts.some(a => a.parentCode === acct.code);
-          const expander = hasChildren ? `<span class="tree-node-expander">▼</span>` : `<span style="display:inline-block; width:16px;"></span>`;
-          
-          let typeColor = "";
-          if (acct.type === "Asset") typeColor = "var(--color-secondary)";
-          else if (acct.type === "Liability") typeColor = "var(--color-p2p)";
-          else if (acct.type === "Equity") typeColor = "var(--color-primary)";
-          else if (acct.type === "Revenue") typeColor = "var(--color-o2c)";
-          else typeColor = "var(--color-danger)";
-
-          return `
+            const hasChildren = accounts.some(a => a.parentCode === acct.code);
+            const expander = hasChildren ? `<span class="tree-node-expander">▼</span>` : `<span style="display:inline-block; width:16px;"></span>`;
+            let typeColor = "";
+            if (acct.type === "Asset")
+                typeColor = "var(--color-secondary)";
+            else if (acct.type === "Liability")
+                typeColor = "var(--color-p2p)";
+            else if (acct.type === "Equity")
+                typeColor = "var(--color-primary)";
+            else if (acct.type === "Revenue")
+                typeColor = "var(--color-o2c)";
+            else
+                typeColor = "var(--color-danger)";
+            return `
             <div class="tree-node" data-code="${acct.code}">
               <div class="tree-node-content ${hasChildren ? 'parent' : ''}">
                 <div>
@@ -89,12 +86,10 @@ function renderCOATree(container) {
         }).join("")}
       </div>
     `;
-  };
-
-  // Render Root level nodes (parentCode is null)
-  const canCreateAcct = store.checkPermission("accounting", "create");
-
-  container.innerHTML = `
+    };
+    // Render Root level nodes (parentCode is null)
+    const canCreateAcct = store.checkPermission("accounting", "create");
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Corporate Accounts Directory Tree</h3>
@@ -109,26 +104,24 @@ function renderCOATree(container) {
     <!-- Create GL account Modal mount -->
     <div id="coa-modal-mount"></div>
   `;
-
-  // Collapsible toggle nodes listeners
-  container.querySelectorAll(".tree-node-content.parent").forEach(nodeContent => {
-    nodeContent.addEventListener("click", (e) => {
-      // Ignore click on actions button if added later
-      if (e.target.closest("button")) return;
-      const node = nodeContent.closest(".tree-node");
-      node.classList.toggle("tree-node-collapsed");
+    // Collapsible toggle nodes listeners
+    container.querySelectorAll(".tree-node-content.parent").forEach(nodeContent => {
+        nodeContent.addEventListener("click", (e) => {
+            // Ignore click on actions button if added later
+            if (e.target.closest("button"))
+                return;
+            const node = nodeContent.closest(".tree-node");
+            node.classList.toggle("tree-node-collapsed");
+        });
     });
-  });
-
-  // Add GL Account Wizard
-  const modalMount = container.querySelector("#coa-modal-mount");
-  const addGlBtn = container.querySelector("#add-gl-btn");
-  if (addGlBtn) {
-    addGlBtn.addEventListener("click", () => {
-    // Parent Account list (any account can potentially act as a parent)
-    let parentOptions = accounts.map(a => `<option value="${a.code}">${a.code} - ${a.name} (${a.type})</option>`).join("");
-
-    modalMount.innerHTML = `
+    // Add GL Account Wizard
+    const modalMount = container.querySelector("#coa-modal-mount");
+    const addGlBtn = container.querySelector("#add-gl-btn");
+    if (addGlBtn) {
+        addGlBtn.addEventListener("click", () => {
+            // Parent Account list (any account can potentially act as a parent)
+            let parentOptions = accounts.map(a => `<option value="${a.code}">${a.code} - ${a.name} (${a.type})</option>`).join("");
+            modalMount.innerHTML = `
       <div class="modal-overlay">
         <div class="modal-content">
           <div class="modal-header">
@@ -173,38 +166,33 @@ function renderCOATree(container) {
         </div>
       </div>
     `;
-
-    const close = () => modalMount.innerHTML = "";
-    modalMount.querySelector(".modal-close").addEventListener("click", close);
-    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
-
-    modalMount.querySelector("#new-gl-form").addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      const code = ev.target.querySelector("#gl-code").value;
-      const name = ev.target.querySelector("#gl-name").value;
-      const type = ev.target.querySelector("#gl-type").value;
-      const parentCode = ev.target.querySelector("#gl-parent").value || null;
-
-      try {
-        store.addGLAccount({ code, name, type, parentCode });
-        window.showToast(`Account ${code} successfully registered in Chart of Accounts Tree.`, "success");
-        close();
-        renderCOATree(container);
-      } catch (err) {
-        window.showToast(err.message, "danger");
-      }
-    });
-  });
-  } // end if (addGlBtn)
+            const close = () => modalMount.innerHTML = "";
+            modalMount.querySelector(".modal-close").addEventListener("click", close);
+            modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+            modalMount.querySelector("#new-gl-form").addEventListener("submit", (ev) => {
+                ev.preventDefault();
+                const code = ev.target.querySelector("#gl-code").value;
+                const name = ev.target.querySelector("#gl-name").value;
+                const type = ev.target.querySelector("#gl-type").value;
+                const parentCode = ev.target.querySelector("#gl-parent").value || null;
+                try {
+                    store.addGLAccount({ code, name, type, parentCode });
+                    window.showToast(`Account ${code} successfully registered in Chart of Accounts Tree.`, "success");
+                    close();
+                    renderCOATree(container);
+                }
+                catch (err) {
+                    window.showToast(err.message, "danger");
+                }
+            });
+        });
+    } // end if (addGlBtn)
 }
-
 // --- 2. GENERAL JOURNAL ENTRIES REGISTER ---
-
 function renderJournalEntriesList(container) {
-  const journalEntries = [...store.getJournalEntries()].reverse();
-  const canCreateJe = store.checkPermission("accounting", "create");
-
-  container.innerHTML = `
+    const journalEntries = [...store.getJournalEntries()].reverse();
+    const canCreateJe = store.checkPermission("accounting", "create");
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">General Journal Book</h3>
@@ -225,19 +213,18 @@ function renderJournalEntriesList(container) {
           </thead>
           <tbody>
             ${journalEntries.map(je => {
-              const totalDebits = je.lines.reduce((sum, l) => sum + (l.debit || 0), 0);
-              
-              const splitsHtml = je.lines.map(l => {
-                const acct = store.getAccount(l.code);
-                const name = acct ? acct.name : l.code;
-                if (l.debit > 0) {
-                  return `<div style="padding: 2px 0;">Dr. ${name} (${l.code}): <strong>$${l.debit.toFixed(2)}</strong></div>`;
-                } else {
-                  return `<div style="padding: 2px 0; padding-left: 20px;">Cr. ${name} (${l.code}): <strong>$${l.credit.toFixed(2)}</strong></div>`;
-                }
-              }).join("");
-
-              return `
+        const totalDebits = je.lines.reduce((sum, l) => sum + (l.debit || 0), 0);
+        const splitsHtml = je.lines.map(l => {
+            const acct = store.getAccount(l.code);
+            const name = acct ? acct.name : l.code;
+            if (l.debit > 0) {
+                return `<div style="padding: 2px 0;">Dr. ${name} (${l.code}): <strong>$${l.debit.toFixed(2)}</strong></div>`;
+            }
+            else {
+                return `<div style="padding: 2px 0; padding-left: 20px;">Cr. ${name} (${l.code}): <strong>$${l.credit.toFixed(2)}</strong></div>`;
+            }
+        }).join("");
+        return `
                 <tr>
                   <td style="font-family: monospace; font-weight: 700; color: var(--color-primary); vertical-align: top;">${je.id}</td>
                   <td style="vertical-align: top;">${je.date}</td>
@@ -253,19 +240,17 @@ function renderJournalEntriesList(container) {
                   </td>
                 </tr>
               `;
-            }).join("")}
+    }).join("")}
           </tbody>
         </table>
       </div>
     </div>
   `;
 }
-
 function renderJournalEntryForm(container) {
-  const accounts = store.getAccounts().filter(a => a.parentCode !== null);
-  const accountOptions = accounts.map(a => `<option value="${a.code}">${a.code} - ${a.name} (${a.type})</option>`).join("");
-
-  container.innerHTML = `
+    const accounts = store.getAccounts().filter(a => a.parentCode !== null);
+    const accountOptions = accounts.map(a => `<option value="${a.code}">${a.code} - ${a.name} (${a.type})</option>`).join("");
+    container.innerHTML = `
     <div class="card animate-fade-in" style="max-width: 750px; margin: 0 auto;">
       <div class="card-header">
         <h3 class="card-title">New General Journal Entry</h3>
@@ -313,43 +298,38 @@ function renderJournalEntryForm(container) {
       </form>
     </div>
   `;
-
-  const form = container.querySelector("#new-journal-form");
-  const linesBody = container.querySelector("#je-lines-body");
-  const addLineBtn = container.querySelector("#je-add-line");
-  const warningLabel = container.querySelector("#je-balance-warning");
-  const submitBtn = container.querySelector("#je-submit-btn");
-
-  const updateBalances = () => {
-    let totalDebits = 0;
-    let totalCredits = 0;
-
-    linesBody.querySelectorAll(".je-line-row").forEach(row => {
-      const debitVal = parseFloat(((row.querySelector(".je-debit") as HTMLInputElement) as HTMLInputElement).value) || 0;
-      const creditVal = parseFloat(((row.querySelector(".je-credit") as HTMLInputElement) as HTMLInputElement).value) || 0;
-      totalDebits += debitVal;
-      totalCredits += creditVal;
-    });
-
-    container.querySelector("#je-total-debit").textContent = `$${totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    container.querySelector("#je-total-credit").textContent = `$${totalCredits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-
-    const diff = Math.abs(totalDebits - totalCredits);
-    if (diff < 0.01 && totalDebits > 0) {
-      warningLabel.className = "text-success";
-      warningLabel.textContent = "Journal entry balanced. Ready to post.";
-      submitBtn.disabled = false;
-    } else {
-      warningLabel.className = "text-danger";
-      warningLabel.textContent = `Unbalanced: Difference $${diff.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-      submitBtn.disabled = true;
-    }
-  };
-
-  const addLine = () => {
-    const tr = document.createElement("tr");
-    tr.className = "je-line-row";
-    tr.innerHTML = `
+    const form = container.querySelector("#new-journal-form");
+    const linesBody = container.querySelector("#je-lines-body");
+    const addLineBtn = container.querySelector("#je-add-line");
+    const warningLabel = container.querySelector("#je-balance-warning");
+    const submitBtn = container.querySelector("#je-submit-btn");
+    const updateBalances = () => {
+        let totalDebits = 0;
+        let totalCredits = 0;
+        linesBody.querySelectorAll(".je-line-row").forEach(row => {
+            const debitVal = parseFloat(row.querySelector(".je-debit").value) || 0;
+            const creditVal = parseFloat(row.querySelector(".je-credit").value) || 0;
+            totalDebits += debitVal;
+            totalCredits += creditVal;
+        });
+        container.querySelector("#je-total-debit").textContent = `$${totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        container.querySelector("#je-total-credit").textContent = `$${totalCredits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        const diff = Math.abs(totalDebits - totalCredits);
+        if (diff < 0.01 && totalDebits > 0) {
+            warningLabel.className = "text-success";
+            warningLabel.textContent = "Journal entry balanced. Ready to post.";
+            submitBtn.disabled = false;
+        }
+        else {
+            warningLabel.className = "text-danger";
+            warningLabel.textContent = `Unbalanced: Difference $${diff.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            submitBtn.disabled = true;
+        }
+    };
+    const addLine = () => {
+        const tr = document.createElement("tr");
+        tr.className = "je-line-row";
+        tr.innerHTML = `
       <td>
         <select class="form-control je-code" required>
           <option value="" disabled selected>Select account...</option>
@@ -366,59 +346,53 @@ function renderJournalEntryForm(container) {
         <button type="button" class="btn btn-outline btn-sm je-remove" style="color: var(--color-danger); border-color: transparent;">&times;</button>
       </td>
     `;
-
-    linesBody.appendChild(tr);
-
-    const debitInp = tr.querySelector(".je-debit");
-    const creditInp = tr.querySelector(".je-credit");
-    const removeBtn = tr.querySelector(".je-remove");
-    const codeSel = tr.querySelector(".je-code");
-
-    debitInp.addEventListener("input", () => {
-      if (parseFloat((debitInp as HTMLInputElement).value) > 0) (creditInp as HTMLInputElement).value = "";
-      updateBalances();
+        linesBody.appendChild(tr);
+        const debitInp = tr.querySelector(".je-debit");
+        const creditInp = tr.querySelector(".je-credit");
+        const removeBtn = tr.querySelector(".je-remove");
+        const codeSel = tr.querySelector(".je-code");
+        debitInp.addEventListener("input", () => {
+            if (parseFloat(debitInp.value) > 0)
+                creditInp.value = "";
+            updateBalances();
+        });
+        creditInp.addEventListener("input", () => {
+            if (parseFloat(creditInp.value) > 0)
+                debitInp.value = "";
+            updateBalances();
+        });
+        codeSel.addEventListener("change", updateBalances);
+        removeBtn.addEventListener("click", () => { tr.remove(); updateBalances(); });
+        updateBalances();
+    };
+    addLineBtn.addEventListener("click", addLine);
+    // Seed initial 2 lines
+    addLine();
+    addLine();
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const lines = [];
+        form.querySelectorAll(".je-line-row").forEach(row => {
+            const code = row.querySelector(".je-code").value;
+            const debit = parseFloat(row.querySelector(".je-debit").value) || 0;
+            const credit = parseFloat(row.querySelector(".je-credit").value) || 0;
+            if (code && (debit > 0 || credit > 0)) {
+                lines.push({ code, debit, credit });
+            }
+        });
+        if (lines.length < 2) {
+            window.showToast("At least two accounts splits are required to save journal entries.", "warning");
+            return;
+        }
+        try {
+            const reference = form.querySelector("#je-reference").value;
+            store.addManualJournalEntry(reference, lines);
+            window.showToast("Journal entry successfully saved and posted to Chart of Accounts balances.", "success");
+            window.location.hash = "#accounting/journal";
+        }
+        catch (err) {
+            window.showToast(err.message, "danger");
+        }
     });
-    creditInp.addEventListener("input", () => {
-      if (parseFloat((creditInp as HTMLInputElement).value) > 0) (debitInp as HTMLInputElement).value = "";
-      updateBalances();
-    });
-    codeSel.addEventListener("change", updateBalances);
-    removeBtn.addEventListener("click", () => { tr.remove(); updateBalances(); });
-
-    updateBalances();
-  };
-
-  addLineBtn.addEventListener("click", addLine);
-  
-  // Seed initial 2 lines
-  addLine();
-  addLine();
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    
-    const lines = [];
-    form.querySelectorAll(".je-line-row").forEach(row => {
-      const code = row.querySelector(".je-code").value;
-      const debit = parseFloat(((row.querySelector(".je-debit") as HTMLInputElement) as HTMLInputElement).value) || 0;
-      const credit = parseFloat(((row.querySelector(".je-credit") as HTMLInputElement) as HTMLInputElement).value) || 0;
-      if (code && (debit > 0 || credit > 0)) {
-        lines.push({ code, debit, credit });
-      }
-    });
-
-    if (lines.length < 2) {
-      window.showToast("At least two accounts splits are required to save journal entries.", "warning");
-      return;
-    }
-
-    try {
-      const reference = form.querySelector("#je-reference").value;
-      store.addManualJournalEntry(reference, lines);
-      window.showToast("Journal entry successfully saved and posted to Chart of Accounts balances.", "success");
-      window.location.hash = "#accounting/journal";
-    } catch (err) {
-      window.showToast(err.message, "danger");
-    }
-  });
 }
+//# sourceMappingURL=accounting.js.map

@@ -35,7 +35,7 @@ const sidebarNav = document.querySelector(".sidebar-nav");
 function initMegaMenuUI() {
   const accordions = document.querySelectorAll(".accordion");
   
-  accordions.forEach(acc => {
+  accordions.forEach((acc: any) => {
     const trigger = acc.querySelector(".accordion-trigger");
     trigger.addEventListener("click", (e) => {
       e.preventDefault();
@@ -57,7 +57,7 @@ function initMegaMenuUI() {
 // Visually dim and disable unauthorized sidebar options
 function filterSidebarMenuItems() {
   const items = document.querySelectorAll(".sidebar-nav a, .sidebar-nav button.accordion-trigger, .sidebar-nav .menu-section");
-  items.forEach(el => {
+  items.forEach((el: any) => {
     let module = "";
     
     // Determine the target module to evaluate
@@ -207,7 +207,7 @@ function updateHeaderKPIs() {
   headerCompanyEl.textContent = activeCompany ? activeCompany.name : "No Company";
 
   const cashAcct = store.getAccount(store.getSettings().glMappings.cashAccount);
-  const cashVal = cashAcct ? cashAcct.balance : 0;
+  const cashVal: number = cashAcct ? cashAcct.balance : 0;
   
   const currencySymbol = activeCompany && activeCompany.currency === "PHP" ? "₱" : "$";
   const displayCash = activeCompany && activeCompany.currency === "PHP" 
@@ -218,7 +218,7 @@ function updateHeaderKPIs() {
 
   const totalStock = store.getItems().reduce((sum, item) => {
     const warehouseStocks = Object.values(item.stocks || {});
-    return sum + warehouseStocks.reduce((s, qty) => s + qty, 0);
+    return sum + warehouseStocks.reduce((s: number, qty: number) => s + qty, 0);
   }, 0);
   headerStockEl.textContent = `${totalStock.toLocaleString('en-US')} units`;
 }
@@ -230,7 +230,7 @@ function initUserSwitcher() {
 
   if (!switcher) return;
 
-  switcher.value = store.state.currentUser;
+  (switcher as HTMLSelectElement).value = store.state.currentUser;
 
   const syncAvatar = () => {
     const user = store.getCurrentUser();
@@ -240,7 +240,7 @@ function initUserSwitcher() {
   };
   syncAvatar();
 
-  switcher.addEventListener("change", (e) => {
+  switcher.addEventListener("change", (e: any) => {
     store.setCurrentUser(e.target.value);
     window.showToast(`User session switched to: ${store.getCurrentUser().name}`, "info");
     syncAvatar();

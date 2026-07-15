@@ -3,9 +3,10 @@
   "version": "2.0.0",
   "description": "JMIT Integrated ERP — TypeScript",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && find dist -name '*.js' -exec sed -i 's/from \"\\.\\(.*\\)\"/from \".\\1.js\"/g' {} +",
     "watch": "tsc --watch",
-    "dev": "tsc && npx -y serve -l 3000 ."
+    "dev": "npm run build && npx -y serve -l 3000 .",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

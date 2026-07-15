@@ -1,50 +1,55 @@
 // JMIT ERP - Sales & Order-to-Cash (O2C) Full-Page Flow View Module
-import { store } from "../store";
-
+import { store } from "../store.js";
 export function renderO2C(container, pathParts) {
-  const subPage = pathParts[1] || "sales-orders";
-  const action = pathParts[2];
-  const paramId = pathParts[3];
-
-  if (subPage === "sales-orders") {
-    if (action === "new") {
-      renderSalesOrderForm(container);
-    } else if (action === "view" && paramId) {
-      renderSalesOrderDetails(container, paramId);
-    } else {
-      renderSalesOrdersList(container);
+    const subPage = pathParts[1] || "sales-orders";
+    const action = pathParts[2];
+    const paramId = pathParts[3];
+    if (subPage === "sales-orders") {
+        if (action === "new") {
+            renderSalesOrderForm(container);
+        }
+        else if (action === "view" && paramId) {
+            renderSalesOrderDetails(container, paramId);
+        }
+        else {
+            renderSalesOrdersList(container);
+        }
     }
-  } else if (subPage === "deliveries") {
-    if (action === "new") {
-      renderDeliveryForm(container);
-    } else if (action === "view" && paramId) {
-      renderDeliveryDetails(container, paramId);
-    } else {
-      renderDeliveriesList(container);
+    else if (subPage === "deliveries") {
+        if (action === "new") {
+            renderDeliveryForm(container);
+        }
+        else if (action === "view" && paramId) {
+            renderDeliveryDetails(container, paramId);
+        }
+        else {
+            renderDeliveriesList(container);
+        }
     }
-  } else if (subPage === "invoices") {
-    if (action === "new") {
-      renderInvoiceForm(container);
-    } else if (action === "view" && paramId) {
-      renderInvoiceDetails(container, paramId);
-    } else {
-      renderInvoicesList(container);
+    else if (subPage === "invoices") {
+        if (action === "new") {
+            renderInvoiceForm(container);
+        }
+        else if (action === "view" && paramId) {
+            renderInvoiceDetails(container, paramId);
+        }
+        else {
+            renderInvoicesList(container);
+        }
     }
-  } else if (subPage === "returns") {
-    if (action === "new") {
-      renderReturnForm(container);
-    } else {
-      renderReturnsList(container);
+    else if (subPage === "returns") {
+        if (action === "new") {
+            renderReturnForm(container);
+        }
+        else {
+            renderReturnsList(container);
+        }
     }
-  }
 }
-
 // --- 1. SALES ORDERS VIEW RENDERERS ---
-
 function renderSalesOrdersList(container) {
-  const salesOrders = [...store.getSalesOrders()].reverse();
-
-  container.innerHTML = `
+    const salesOrders = [...store.getSalesOrders()].reverse();
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Sales Orders Register Ledger</h3>
@@ -87,17 +92,14 @@ function renderSalesOrdersList(container) {
     </div>
   `;
 }
-
 function renderSalesOrderForm(container) {
-  const customers = store.getPartners().customers;
-  const items = store.getItems();
-  const rates = store.getExchangeRates();
-  const activeCompany = store.getActiveCompany();
-
-  let customerOptions = customers.map(c => `<option value="${c.id}">${c.name} (TIN: ${c.taxId})</option>`).join("");
-  let itemOptions = items.map(i => `<option value="${i.id}">${i.name} ($${i.price})</option>`).join("");
-
-  container.innerHTML = `
+    const customers = store.getPartners().customers;
+    const items = store.getItems();
+    const rates = store.getExchangeRates();
+    const activeCompany = store.getActiveCompany();
+    let customerOptions = customers.map(c => `<option value="${c.id}">${c.name} (TIN: ${c.taxId})</option>`).join("");
+    let itemOptions = items.map(i => `<option value="${i.id}">${i.name} ($${i.price})</option>`).join("");
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">New Sales Order Form</h3>
@@ -183,56 +185,48 @@ function renderSalesOrderForm(container) {
       </form>
     </div>
   `;
-
-  const form = container.querySelector("#sales-order-form");
-  const linesBody = container.querySelector("#so-lines-body");
-  const addLineBtn = container.querySelector("#so-add-line");
-  const customerSelect = container.querySelector("#so-customer");
-  const addressInput = container.querySelector("#so-address");
-  const currencySelect = container.querySelector("#so-currency");
-  const rateInput = container.querySelector("#so-rate");
-
-  // Sync exchange rate on currency change
-  currencySelect.addEventListener("change", (e) => {
-    rateInput.value = rates[e.target.value] || 1.0;
-    updateTotals();
-  });
-
-  customerSelect.addEventListener("change", (e) => {
-    const c = store.getPartner(e.target.value);
-    if (c) {
-      addressInput.value = c.address;
-    }
-  });
-
-  const updateTotals = () => {
-    let subtotal = 0;
-    linesBody.querySelectorAll(".so-line-row").forEach(row => {
-      const itemId = ((row.querySelector(".line-item") as HTMLSelectElement) as HTMLSelectElement).value;
-      const qty = Number(((row.querySelector(".line-qty") as HTMLInputElement) as HTMLInputElement).value) || 0;
-      
-      if (itemId) {
-        const item = store.getItem(itemId);
-        if (item) {
-          subtotal += item.price * qty;
-        }
-      }
+    const form = container.querySelector("#sales-order-form");
+    const linesBody = container.querySelector("#so-lines-body");
+    const addLineBtn = container.querySelector("#so-add-line");
+    const customerSelect = container.querySelector("#so-customer");
+    const addressInput = container.querySelector("#so-address");
+    const currencySelect = container.querySelector("#so-currency");
+    const rateInput = container.querySelector("#so-rate");
+    // Sync exchange rate on currency change
+    currencySelect.addEventListener("change", (e) => {
+        rateInput.value = rates[e.target.value] || 1.0;
+        updateTotals();
     });
-
-    const tax = parseFloat((subtotal * 0.12).toFixed(2));
-    const wht = parseFloat((subtotal * 0.02).toFixed(2));
-    const total = parseFloat((subtotal + tax - wht).toFixed(2));
-
-    container.querySelector("#so-subtotal").textContent = `$${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    container.querySelector("#so-tax").textContent = `$${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    container.querySelector("#so-wht").textContent = `$${wht.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    container.querySelector("#so-total").textContent = `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-  };
-
-  const addLine = () => {
-    const tr = document.createElement("tr");
-    tr.className = "so-line-row";
-    tr.innerHTML = `
+    customerSelect.addEventListener("change", (e) => {
+        const c = store.getPartner(e.target.value);
+        if (c) {
+            addressInput.value = c.address;
+        }
+    });
+    const updateTotals = () => {
+        let subtotal = 0;
+        linesBody.querySelectorAll(".so-line-row").forEach(row => {
+            const itemId = row.querySelector(".line-item").value;
+            const qty = Number(row.querySelector(".line-qty").value) || 0;
+            if (itemId) {
+                const item = store.getItem(itemId);
+                if (item) {
+                    subtotal += item.price * qty;
+                }
+            }
+        });
+        const tax = parseFloat((subtotal * 0.12).toFixed(2));
+        const wht = parseFloat((subtotal * 0.02).toFixed(2));
+        const total = parseFloat((subtotal + tax - wht).toFixed(2));
+        container.querySelector("#so-subtotal").textContent = `$${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        container.querySelector("#so-tax").textContent = `$${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        container.querySelector("#so-wht").textContent = `$${wht.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        container.querySelector("#so-total").textContent = `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    };
+    const addLine = () => {
+        const tr = document.createElement("tr");
+        tr.className = "so-line-row";
+        tr.innerHTML = `
       <td>
         <select class="form-control line-item" required>
           <option value="" disabled selected>Select item...</option>
@@ -256,77 +250,64 @@ function renderSalesOrderForm(container) {
         <button type="button" class="btn btn-outline btn-sm remove-line" style="color: var(--color-danger); border-color: transparent;">&times;</button>
       </td>
     `;
-
-    linesBody.appendChild(tr);
-
-    const itemSel = tr.querySelector(".line-item");
-    const qtyInp = tr.querySelector(".line-qty");
-    const priceInp = tr.querySelector(".line-price");
-    const removeBtn = tr.querySelector(".remove-line");
-
-    itemSel.addEventListener("change", () => {
-      const item = store.getItem((itemSel as HTMLSelectElement).value);
-      if (item) {
-        (priceInp as HTMLInputElement).value = `$${item.price.toFixed(2)}`;
-      }
-      updateTotals();
+        linesBody.appendChild(tr);
+        const itemSel = tr.querySelector(".line-item");
+        const qtyInp = tr.querySelector(".line-qty");
+        const priceInp = tr.querySelector(".line-price");
+        const removeBtn = tr.querySelector(".remove-line");
+        itemSel.addEventListener("change", () => {
+            const item = store.getItem(itemSel.value);
+            if (item) {
+                priceInp.value = `$${item.price.toFixed(2)}`;
+            }
+            updateTotals();
+        });
+        qtyInp.addEventListener("input", updateTotals);
+        removeBtn.addEventListener("click", () => { tr.remove(); updateTotals(); });
+        updateTotals();
+    };
+    addLineBtn.addEventListener("click", addLine);
+    addLine(); // add first line
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const lines = [];
+        linesBody.querySelectorAll(".so-line-row").forEach(row => {
+            const itemId = row.querySelector(".line-item").value;
+            const qty = Number(row.querySelector(".line-qty").value);
+            const uom = row.querySelector(".line-uom").value;
+            lines.push({ itemId, qty, uom });
+        });
+        try {
+            const soData = {
+                customerId: customerSelect.value,
+                date: form.querySelector("#so-date").value,
+                items: lines,
+                currency: currencySelect.value,
+                rate: Number(rateInput.value)
+            };
+            store.createSalesOrder(soData);
+            window.showToast("Sales Order successfully generated and approved.", "success");
+            window.location.hash = "#o2c/sales-orders";
+        }
+        catch (err) {
+            window.showToast(err.message, "danger");
+        }
     });
-
-    qtyInp.addEventListener("input", updateTotals);
-    removeBtn.addEventListener("click", () => { tr.remove(); updateTotals(); });
-
-    updateTotals();
-  };
-
-  addLineBtn.addEventListener("click", addLine);
-  addLine(); // add first line
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    
-    const lines = [];
-    linesBody.querySelectorAll(".so-line-row").forEach(row => {
-      const itemId = ((row.querySelector(".line-item") as HTMLSelectElement) as HTMLSelectElement).value;
-      const qty = Number(((row.querySelector(".line-qty") as HTMLInputElement) as HTMLInputElement).value);
-      const uom = row.querySelector(".line-uom").value;
-      lines.push({ itemId, qty, uom });
-    });
-
-    try {
-      const soData = {
-        customerId: customerSelect.value,
-        date: form.querySelector("#so-date").value,
-        items: lines,
-        currency: currencySelect.value,
-        rate: Number(rateInput.value)
-      };
-
-      store.createSalesOrder(soData);
-      window.showToast("Sales Order successfully generated and approved.", "success");
-      window.location.hash = "#o2c/sales-orders";
-    } catch (err) {
-      window.showToast(err.message, "danger");
-    }
-  });
 }
-
 function renderSalesOrderDetails(container, orderId) {
-  const so = store.getSalesOrders().find(s => s.id === orderId);
-  if (!so) {
-    container.innerHTML = `<div class="card"><p class="text-danger">Order not found.</p></div>`;
-    return;
-  }
-
-  const isDraft = so.status === "Draft";
-  const canApprove = store.checkPermission("o2c", "approve");
-  const canDelete = store.checkPermission("o2c", "delete");
-
-  // Show Delivery and Invoice triggers only if user has write/create permission
-  const hasWritePermission = store.checkPermission("o2c", "create");
-  const showDeliveryBtn = so.status === "Approved" && hasWritePermission;
-  const showInvoiceBtn = so.status === "Delivered" && hasWritePermission;
-
-  container.innerHTML = `
+    const so = store.getSalesOrders().find(s => s.id === orderId);
+    if (!so) {
+        container.innerHTML = `<div class="card"><p class="text-danger">Order not found.</p></div>`;
+        return;
+    }
+    const isDraft = so.status === "Draft";
+    const canApprove = store.checkPermission("o2c", "approve");
+    const canDelete = store.checkPermission("o2c", "delete");
+    // Show Delivery and Invoice triggers only if user has write/create permission
+    const hasWritePermission = store.checkPermission("o2c", "create");
+    const showDeliveryBtn = so.status === "Approved" && hasWritePermission;
+    const showInvoiceBtn = so.status === "Delivered" && hasWritePermission;
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
@@ -412,51 +393,48 @@ function renderSalesOrderDetails(container, orderId) {
       </div>
     </div>
   `;
-
-  // Action listeners
-  if (isDraft && canApprove) {
-    container.querySelector("#approve-so-btn").addEventListener("click", () => {
-      try {
-        store.approveSalesOrder(so.id);
-        window.showToast(`Sales Order ${so.id} approved successfully.`, "success");
-        renderSalesOrderDetails(container, orderId);
-      } catch (err) {
-        window.showToast(err.message, "danger");
-      }
-    });
-  }
-  if (isDraft && canDelete) {
-    container.querySelector("#delete-so-btn").addEventListener("click", () => {
-      if (confirm("Permanently delete this draft Sales Order?")) {
-        try {
-          store.deleteDocument("o2c", "salesOrders", so.id);
-          window.showToast("Draft Sales Order deleted.", "warning");
-          window.location.hash = "#o2c/sales-orders";
-        } catch (err) {
-          window.showToast(err.message, "danger");
-        }
-      }
-    });
-  }
-  if (showDeliveryBtn) {
-    container.querySelector("#proceed-delivery-btn").addEventListener("click", () => {
-      window.location.hash = `#o2c/deliveries/new?so=${so.id}`;
-    });
-  }
-  if (showInvoiceBtn) {
-    container.querySelector("#proceed-invoice-btn").addEventListener("click", () => {
-      window.location.hash = `#o2c/invoices/new?so=${so.id}`;
-    });
-  }
+    // Action listeners
+    if (isDraft && canApprove) {
+        container.querySelector("#approve-so-btn").addEventListener("click", () => {
+            try {
+                store.approveSalesOrder(so.id);
+                window.showToast(`Sales Order ${so.id} approved successfully.`, "success");
+                renderSalesOrderDetails(container, orderId);
+            }
+            catch (err) {
+                window.showToast(err.message, "danger");
+            }
+        });
+    }
+    if (isDraft && canDelete) {
+        container.querySelector("#delete-so-btn").addEventListener("click", () => {
+            if (confirm("Permanently delete this draft Sales Order?")) {
+                try {
+                    store.deleteDocument("o2c", "salesOrders", so.id);
+                    window.showToast("Draft Sales Order deleted.", "warning");
+                    window.location.hash = "#o2c/sales-orders";
+                }
+                catch (err) {
+                    window.showToast(err.message, "danger");
+                }
+            }
+        });
+    }
+    if (showDeliveryBtn) {
+        container.querySelector("#proceed-delivery-btn").addEventListener("click", () => {
+            window.location.hash = `#o2c/deliveries/new?so=${so.id}`;
+        });
+    }
+    if (showInvoiceBtn) {
+        container.querySelector("#proceed-invoice-btn").addEventListener("click", () => {
+            window.location.hash = `#o2c/invoices/new?so=${so.id}`;
+        });
+    }
 }
-
-
 // --- 2. DELIVERIES RENDERERS ---
-
 function renderDeliveriesList(container) {
-  const deliveries = [...store.getDeliveries()].reverse();
-
-  container.innerHTML = `
+    const deliveries = [...store.getDeliveries()].reverse();
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Delivery Notes Register Ledger</h3>
@@ -496,27 +474,23 @@ function renderDeliveriesList(container) {
     </div>
   `;
 }
-
 function renderDeliveryForm(container) {
-  // Extract SO reference from URL parameter
-  const url = window.location.hash;
-  const match = url.match(/so=([^&]+)/);
-  const soId = match ? match[1] : "";
-  const so = store.getSalesOrders().find(s => s.id === soId);
-
-  if (!so) {
-    container.innerHTML = `
+    // Extract SO reference from URL parameter
+    const url = window.location.hash;
+    const match = url.match(/so=([^&]+)/);
+    const soId = match ? match[1] : "";
+    const so = store.getSalesOrders().find(s => s.id === soId);
+    if (!so) {
+        container.innerHTML = `
       <div class="card">
         <p class="text-danger">A valid Sales Order ID must be selected to issue warehouse deliveries.</p>
         <button onclick="window.location.hash='#o2c/sales-orders'" class="btn btn-outline btn-sm" style="margin-top: 10px;">Select Sales Order</button>
       </div>
     `;
-    return;
-  }
-
-  const warehouses = store.getWarehouses();
-
-  container.innerHTML = `
+        return;
+    }
+    const warehouses = store.getWarehouses();
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Warehouse Ship Out: Delivery Note</h3>
@@ -569,49 +543,39 @@ function renderDeliveryForm(container) {
       </form>
     </div>
   `;
-
-  container.querySelector("#delivery-note-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const warehouseId = container.querySelector("#dn-warehouse").value;
-    const lines = [];
-
-    container.querySelectorAll(".dn-line").forEach(tr => {
-      const itemId = tr.getAttribute("data-item-id");
-      const uom = tr.getAttribute("data-uom");
-      const qty = Number(tr.querySelector(".dn-qty").value);
-      
-      // Resolve converted stock qty
-      const conv = store.getUOMConversions().find(c => c.from === uom);
-      const rate = conv ? conv.rate : 1;
-      const baseQty = qty * rate;
-
-      lines.push({ itemId, qty: baseQty, uom });
+    container.querySelector("#delivery-note-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const warehouseId = container.querySelector("#dn-warehouse").value;
+        const lines = [];
+        container.querySelectorAll(".dn-line").forEach(tr => {
+            const itemId = tr.getAttribute("data-item-id");
+            const uom = tr.getAttribute("data-uom");
+            const qty = Number(tr.querySelector(".dn-qty").value);
+            // Resolve converted stock qty
+            const conv = store.getUOMConversions().find(c => c.from === uom);
+            const rate = conv ? conv.rate : 1;
+            const baseQty = qty * rate;
+            lines.push({ itemId, qty: baseQty, uom });
+        });
+        try {
+            store.createDeliveryNote({
+                salesOrderId: so.id,
+                warehouseId,
+                items: lines,
+                date: new Date().toISOString().split("T")[0]
+            });
+            window.showToast(`Delivery dispatch successfully issued from ${store.getWarehouse(warehouseId).name}`, "success");
+            window.location.hash = `#o2c/sales-orders/view/${so.id}`;
+        }
+        catch (err) {
+            window.showToast(err.message, "danger");
+        }
     });
-
-    try {
-      store.createDeliveryNote({
-        salesOrderId: so.id,
-        warehouseId,
-        items: lines,
-        date: new Date().toISOString().split("T")[0]
-      });
-
-      window.showToast(`Delivery dispatch successfully issued from ${store.getWarehouse(warehouseId).name}`, "success");
-      window.location.hash = `#o2c/sales-orders/view/${so.id}`;
-    } catch (err) {
-      window.showToast(err.message, "danger");
-    }
-  });
 }
-
-
 // --- 3. SALES INVOICES RENDERERS ---
-
 function renderInvoicesList(container) {
-  const invoices = [...store.getSalesInvoices()].reverse();
-
-  container.innerHTML = `
+    const invoices = [...store.getSalesInvoices()].reverse();
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Sales Invoices Book</h3>
@@ -653,27 +617,23 @@ function renderInvoicesList(container) {
     </div>
   `;
 }
-
 function renderInvoiceForm(container) {
-  const url = window.location.hash;
-  const match = url.match(/so=([^&]+)/);
-  const soId = match ? match[1] : "";
-  const so = store.getSalesOrders().find(s => s.id === soId);
-
-  if (!so) {
-    container.innerHTML = `
+    const url = window.location.hash;
+    const match = url.match(/so=([^&]+)/);
+    const soId = match ? match[1] : "";
+    const so = store.getSalesOrders().find(s => s.id === soId);
+    if (!so) {
+        container.innerHTML = `
       <div class="card">
         <p class="text-danger">A valid Sales Order ID must be referenced to compile invoices.</p>
         <button onclick="window.location.hash='#o2c/sales-orders'" class="btn btn-outline btn-sm" style="margin-top: 10px;">Select Sales Order</button>
       </div>
     `;
-    return;
-  }
-
-  // Find Delivery reference matching this Sales Order
-  const dn = store.getDeliveries().find(d => d.salesOrderId === so.id);
-
-  container.innerHTML = `
+        return;
+    }
+    // Find Delivery reference matching this Sales Order
+    const dn = store.getDeliveries().find(d => d.salesOrderId === so.id);
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Billing Sales Invoice</h3>
@@ -716,32 +676,26 @@ function renderInvoiceForm(container) {
       </form>
     </div>
   `;
-
-  container.querySelector("#sales-invoice-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    try {
-      store.createSalesInvoice({
-        salesOrderId: so.id,
-        deliveryNoteId: dn ? dn.id : "",
-        date: new Date().toISOString().split("T")[0]
-      });
-
-      window.showToast(`Invoice successfully created and posted to general ledger under Accounts Receivable.`, "success");
-      window.location.hash = `#o2c/invoices`;
-    } catch (err) {
-      window.showToast(err.message, "danger");
-    }
-  });
+    container.querySelector("#sales-invoice-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        try {
+            store.createSalesInvoice({
+                salesOrderId: so.id,
+                deliveryNoteId: dn ? dn.id : "",
+                date: new Date().toISOString().split("T")[0]
+            });
+            window.showToast(`Invoice successfully created and posted to general ledger under Accounts Receivable.`, "success");
+            window.location.hash = `#o2c/invoices`;
+        }
+        catch (err) {
+            window.showToast(err.message, "danger");
+        }
+    });
 }
-
-
 // --- 4. SALES RETURNS RENDERERS ---
-
 function renderReturnsList(container) {
-  const returns = [...store.getSalesReturns()].reverse();
-
-  container.innerHTML = `
+    const returns = [...store.getSalesReturns()].reverse();
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Customer Sales Returns Ledger</h3>
@@ -775,19 +729,15 @@ function renderReturnsList(container) {
       </div>
     </div>
   `;
-
-  container.querySelector("#new-return-btn").addEventListener("click", () => {
-    window.location.hash = "#o2c/returns/new";
-  });
+    container.querySelector("#new-return-btn").addEventListener("click", () => {
+        window.location.hash = "#o2c/returns/new";
+    });
 }
-
 function renderReturnForm(container) {
-  const invoices = store.getSalesInvoices();
-  const warehouses = store.getWarehouses();
-
-  let invoiceOptions = invoices.map(i => `<option value="${i.id}">${i.id} - ${i.customerName} ($${i.total})</option>`).join("");
-
-  container.innerHTML = `
+    const invoices = store.getSalesInvoices();
+    const warehouses = store.getWarehouses();
+    let invoiceOptions = invoices.map(i => `<option value="${i.id}">${i.id} - ${i.customerName} ($${i.total})</option>`).join("");
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Process Sales Return</h3>
@@ -821,16 +771,14 @@ function renderReturnForm(container) {
       </form>
     </div>
   `;
-
-  const invoiceSelect = container.querySelector("#sr-invoice");
-  const itemsArea = container.querySelector("#sr-items-area");
-  const form = container.querySelector("#sales-return-form");
-
-  invoiceSelect.addEventListener("change", () => {
-    const si = invoices.find(i => i.id === invoiceSelect.value);
-    if (!si) return;
-
-    itemsArea.innerHTML = `
+    const invoiceSelect = container.querySelector("#sr-invoice");
+    const itemsArea = container.querySelector("#sr-items-area");
+    const form = container.querySelector("#sales-return-form");
+    invoiceSelect.addEventListener("change", () => {
+        const si = invoices.find(i => i.id === invoiceSelect.value);
+        if (!si)
+            return;
+        itemsArea.innerHTML = `
       <h4 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 10px;">Select Items to Return</h4>
       <table>
         <thead>
@@ -857,68 +805,58 @@ function renderReturnForm(container) {
         </tbody>
       </table>
     `;
-  });
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const invoiceId = invoiceSelect.value;
-    const warehouseId = form.querySelector("#sr-warehouse").value;
-    const si = invoices.find(i => i.id === invoiceId);
-
-    const returnLines = [];
-    let refundSubtotal = 0;
-
-    form.querySelectorAll(".sr-line").forEach(tr => {
-      const itemId = tr.getAttribute("data-item-id");
-      const price = Number(tr.getAttribute("data-price"));
-      const uom = tr.getAttribute("data-uom");
-      const qty = Number(tr.querySelector(".sr-qty").value);
-
-      if (qty > 0) {
-        returnLines.push({ itemId, qty, uom });
-        refundSubtotal += price * qty;
-      }
     });
-
-    if (returnLines.length === 0) {
-      window.showToast("Please select at least one item and quantity to return.", "warning");
-      return;
-    }
-
-    // Apply VAT / WHT ratio
-    const tax = refundSubtotal * 0.12;
-    const wht = refundSubtotal * 0.02;
-    const totalReturn = parseFloat((refundSubtotal + tax - wht).toFixed(2));
-
-    try {
-      store.createSalesReturn({
-        salesInvoiceId: invoiceId,
-        warehouseId,
-        items: returnLines,
-        totalReturn,
-        date: new Date().toISOString().split("T")[0]
-      });
-
-      window.showToast(`Sales return completed. Stock returned to warehouse and reversing General Ledger entry posted.`, "success");
-      window.location.hash = "#o2c/returns";
-    } catch (err) {
-      window.showToast(err.message, "danger");
-    }
-  });
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const invoiceId = invoiceSelect.value;
+        const warehouseId = form.querySelector("#sr-warehouse").value;
+        const si = invoices.find(i => i.id === invoiceId);
+        const returnLines = [];
+        let refundSubtotal = 0;
+        form.querySelectorAll(".sr-line").forEach(tr => {
+            const itemId = tr.getAttribute("data-item-id");
+            const price = Number(tr.getAttribute("data-price"));
+            const uom = tr.getAttribute("data-uom");
+            const qty = Number(tr.querySelector(".sr-qty").value);
+            if (qty > 0) {
+                returnLines.push({ itemId, qty, uom });
+                refundSubtotal += price * qty;
+            }
+        });
+        if (returnLines.length === 0) {
+            window.showToast("Please select at least one item and quantity to return.", "warning");
+            return;
+        }
+        // Apply VAT / WHT ratio
+        const tax = refundSubtotal * 0.12;
+        const wht = refundSubtotal * 0.02;
+        const totalReturn = parseFloat((refundSubtotal + tax - wht).toFixed(2));
+        try {
+            store.createSalesReturn({
+                salesInvoiceId: invoiceId,
+                warehouseId,
+                items: returnLines,
+                totalReturn,
+                date: new Date().toISOString().split("T")[0]
+            });
+            window.showToast(`Sales return completed. Stock returned to warehouse and reversing General Ledger entry posted.`, "success");
+            window.location.hash = "#o2c/returns";
+        }
+        catch (err) {
+            window.showToast(err.message, "danger");
+        }
+    });
 }
-
 function renderDeliveryDetails(container, deliveryId) {
-  const dn = store.getDeliveries().find(d => d.id === deliveryId);
-  if (!dn) {
-    container.innerHTML = `<div class="card"><p class="text-danger">Delivery Note not found.</p></div>`;
-    return;
-  }
-
-  const isDraft = dn.status === "Draft";
-  const canApprove = store.checkPermission("o2c", "approve");
-  const canDelete = store.checkPermission("o2c", "delete");
-
-  container.innerHTML = `
+    const dn = store.getDeliveries().find(d => d.id === deliveryId);
+    if (!dn) {
+        container.innerHTML = `<div class="card"><p class="text-danger">Delivery Note not found.</p></div>`;
+        return;
+    }
+    const isDraft = dn.status === "Draft";
+    const canApprove = store.checkPermission("o2c", "approve");
+    const canDelete = store.checkPermission("o2c", "delete");
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
@@ -983,47 +921,44 @@ function renderDeliveryDetails(container, deliveryId) {
       </div>
     </div>
   `;
-
-  if (isDraft && canApprove) {
-    container.querySelector("#submit-dn-btn").addEventListener("click", () => {
-      try {
-        store.submitDeliveryNote(dn.id);
-        window.showToast(`Delivery Note ${dn.id} submitted. Stock levels updated.`, "success");
-        renderDeliveryDetails(container, deliveryId);
-      } catch (err) {
-        window.showToast(err.message, "danger");
-      }
-    });
-  }
-  if (isDraft && canDelete) {
-    container.querySelector("#delete-dn-btn").addEventListener("click", () => {
-      if (confirm("Delete this draft Delivery Note?")) {
-        try {
-          store.deleteDocument("o2c", "deliveries", dn.id);
-          window.showToast("Draft Delivery Note deleted.", "warning");
-          window.location.hash = "#o2c/deliveries";
-        } catch (err) {
-          window.showToast(err.message, "danger");
-        }
-      }
-    });
-  }
+    if (isDraft && canApprove) {
+        container.querySelector("#submit-dn-btn").addEventListener("click", () => {
+            try {
+                store.submitDeliveryNote(dn.id);
+                window.showToast(`Delivery Note ${dn.id} submitted. Stock levels updated.`, "success");
+                renderDeliveryDetails(container, deliveryId);
+            }
+            catch (err) {
+                window.showToast(err.message, "danger");
+            }
+        });
+    }
+    if (isDraft && canDelete) {
+        container.querySelector("#delete-dn-btn").addEventListener("click", () => {
+            if (confirm("Delete this draft Delivery Note?")) {
+                try {
+                    store.deleteDocument("o2c", "deliveries", dn.id);
+                    window.showToast("Draft Delivery Note deleted.", "warning");
+                    window.location.hash = "#o2c/deliveries";
+                }
+                catch (err) {
+                    window.showToast(err.message, "danger");
+                }
+            }
+        });
+    }
 }
-
 function renderInvoiceDetails(container, invoiceId) {
-  const si = store.getSalesInvoices().find(s => s.id === invoiceId);
-  if (!si) {
-    container.innerHTML = `<div class="card"><p class="text-danger">Invoice not found.</p></div>`;
-    return;
-  }
-
-  const isDraft = si.status === "Draft";
-  const canApprove = store.checkPermission("o2c", "approve");
-  const canDelete = store.checkPermission("o2c", "delete");
-  
-  const showPayBtn = si.status === "Unpaid" && store.checkPermission("finance", "create");
-
-  container.innerHTML = `
+    const si = store.getSalesInvoices().find(s => s.id === invoiceId);
+    if (!si) {
+        container.innerHTML = `<div class="card"><p class="text-danger">Invoice not found.</p></div>`;
+        return;
+    }
+    const isDraft = si.status === "Draft";
+    const canApprove = store.checkPermission("o2c", "approve");
+    const canDelete = store.checkPermission("o2c", "delete");
+    const showPayBtn = si.status === "Unpaid" && store.checkPermission("finance", "create");
+    container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
@@ -1112,34 +1047,36 @@ function renderInvoiceDetails(container, invoiceId) {
       </div>
     </div>
   `;
-
-  if (isDraft && canApprove) {
-    container.querySelector("#submit-si-btn").addEventListener("click", () => {
-      try {
-        store.submitSalesInvoice(si.id);
-        window.showToast(`Sales Invoice ${si.id} submitted and posted to General Ledger accounts.`, "success");
-        renderInvoiceDetails(container, invoiceId);
-      } catch (err) {
-        window.showToast(err.message, "danger");
-      }
-    });
-  }
-  if (isDraft && canDelete) {
-    container.querySelector("#delete-si-btn").addEventListener("click", () => {
-      if (confirm("Delete this draft Sales Invoice?")) {
-        try {
-          store.deleteDocument("o2c", "salesInvoices", si.id);
-          window.showToast("Draft Sales Invoice deleted.", "warning");
-          window.location.hash = "#o2c/invoices";
-        } catch (err) {
-          window.showToast(err.message, "danger");
-        }
-      }
-    });
-  }
-  if (showPayBtn) {
-    container.querySelector("#proceed-payment-btn").addEventListener("click", () => {
-      window.location.hash = `#accounting/payments/new?type=Receive&bill=${si.id}`;
-    });
-  }
+    if (isDraft && canApprove) {
+        container.querySelector("#submit-si-btn").addEventListener("click", () => {
+            try {
+                store.submitSalesInvoice(si.id);
+                window.showToast(`Sales Invoice ${si.id} submitted and posted to General Ledger accounts.`, "success");
+                renderInvoiceDetails(container, invoiceId);
+            }
+            catch (err) {
+                window.showToast(err.message, "danger");
+            }
+        });
+    }
+    if (isDraft && canDelete) {
+        container.querySelector("#delete-si-btn").addEventListener("click", () => {
+            if (confirm("Delete this draft Sales Invoice?")) {
+                try {
+                    store.deleteDocument("o2c", "salesInvoices", si.id);
+                    window.showToast("Draft Sales Invoice deleted.", "warning");
+                    window.location.hash = "#o2c/invoices";
+                }
+                catch (err) {
+                    window.showToast(err.message, "danger");
+                }
+            }
+        });
+    }
+    if (showPayBtn) {
+        container.querySelector("#proceed-payment-btn").addEventListener("click", () => {
+            window.location.hash = `#accounting/payments/new?type=Receive&bill=${si.id}`;
+        });
+    }
 }
+//# sourceMappingURL=o2c.js.map

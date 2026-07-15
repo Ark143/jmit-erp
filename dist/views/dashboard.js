@@ -1,41 +1,33 @@
 // JMIT ERP - Dashboard View Module (Phase 2 Master)
-import { store } from "../store";
-
+import { store } from "../store.js";
 export function renderDashboard(container) {
-  const items = store.getItems();
-  const salesOrders = store.getSalesOrders();
-  const purchaseOrders = store.getPurchaseOrders();
-  const journalEntries = store.getJournalEntries();
-  const mapping = store.getSettings().glMappings;
-
-  // Calculate quick metrics from ledger accounts
-  const cashBalance = store.getAccount(mapping.cashAccount).balance;
-  const revenueBalance = store.getAccount(mapping.salesAccount).balance;
-  const cogsBalance = store.getAccount(mapping.cogsAccount).balance;
-  const opexBalance = store.getAccount(mapping.opexAccount).balance;
-  const deprBalance = store.getAccount(mapping.deprExpenseAccount).balance;
-
-  const inventoryValue = items.reduce((sum: number, item: any) => {
-    const totalQty = Object.values(item.stocks || {}).reduce((s: number, q: any) => s + q, 0);
-    return sum + ((totalQty as number) * (item.cost as number));
-  }, 0);
-
-  const netIncome = revenueBalance - cogsBalance - opexBalance - deprBalance;
-
-  // Identify low stock items (calculating total across all warehouses)
-  const lowStockItems = items.filter(item => {
-    const totalQty = Object.values(item.stocks || {}).reduce((s: number, q: any) => s + q, 0);
-    return totalQty <= item.reorder;
-  });
-
-  // SVG Chart Calculation (Simulated trend based on Sales vs Purchases)
-  const salesTotal = salesOrders.reduce((sum, so) => sum + so.total, 0);
-  const purchaseTotal = purchaseOrders.reduce((sum, po) => sum + po.total, 0);
-
-  // Recent 4 journal logs
-  const recentJournals = [...journalEntries].reverse().slice(0, 4);
-
-  const html = `
+    const items = store.getItems();
+    const salesOrders = store.getSalesOrders();
+    const purchaseOrders = store.getPurchaseOrders();
+    const journalEntries = store.getJournalEntries();
+    const mapping = store.getSettings().glMappings;
+    // Calculate quick metrics from ledger accounts
+    const cashBalance = store.getAccount(mapping.cashAccount).balance;
+    const revenueBalance = store.getAccount(mapping.salesAccount).balance;
+    const cogsBalance = store.getAccount(mapping.cogsAccount).balance;
+    const opexBalance = store.getAccount(mapping.opexAccount).balance;
+    const deprBalance = store.getAccount(mapping.deprExpenseAccount).balance;
+    const inventoryValue = items.reduce((sum, item) => {
+        const totalQty = Object.values(item.stocks || {}).reduce((s, q) => s + q, 0);
+        return sum + (totalQty * item.cost);
+    }, 0);
+    const netIncome = revenueBalance - cogsBalance - opexBalance - deprBalance;
+    // Identify low stock items (calculating total across all warehouses)
+    const lowStockItems = items.filter(item => {
+        const totalQty = Object.values(item.stocks || {}).reduce((s, q) => s + q, 0);
+        return totalQty <= item.reorder;
+    });
+    // SVG Chart Calculation (Simulated trend based on Sales vs Purchases)
+    const salesTotal = salesOrders.reduce((sum, so) => sum + so.total, 0);
+    const purchaseTotal = purchaseOrders.reduce((sum, po) => sum + po.total, 0);
+    // Recent 4 journal logs
+    const recentJournals = [...journalEntries].reverse().slice(0, 4);
+    const html = `
     <div class="dashboard-container animate-fade-in">
       <!-- Top Grid KPIs -->
       <div class="dashboard-grid">
@@ -152,8 +144,8 @@ export function renderDashboard(container) {
                 All items well stocked. No low-stock thresholds reached.
               </div>
             ` : lowStockItems.map(item => {
-              const totalQty = Object.values(item.stocks || {}).reduce((s: number, q: any) => s + q, 0);
-              return `
+        const totalQty = Object.values(item.stocks || {}).reduce((s, q) => s + q, 0);
+        return `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background-color: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: var(--radius-sm);">
                   <div>
                     <div style="font-weight: 600; font-size: 0.85rem;">${item.name}</div>
@@ -165,7 +157,7 @@ export function renderDashboard(container) {
                   </div>
                 </div>
               `;
-            }).join("")}
+    }).join("")}
           </div>
         </div>
       </div>
@@ -192,14 +184,13 @@ export function renderDashboard(container) {
             </thead>
             <tbody>
               ${recentJournals.map(je => {
-                const accountsUsed = je.lines.map(l => {
-                  const acct = store.getAccount(l.code);
-                  const dir = l.debit > 0 ? "Dr" : "Cr";
-                  const amt = l.debit > 0 ? l.debit : l.credit;
-                  return `<span style="font-size: 0.75rem; padding: 2px 6px; background-color: rgba(255,255,255,0.03); border-radius: 4px; margin-right: 4px;">${acct ? acct.name : l.code} (${dir} $${amt.toFixed(2)})</span>`;
-                }).join(" ");
-                
-                return `
+        const accountsUsed = je.lines.map(l => {
+            const acct = store.getAccount(l.code);
+            const dir = l.debit > 0 ? "Dr" : "Cr";
+            const amt = l.debit > 0 ? l.debit : l.credit;
+            return `<span style="font-size: 0.75rem; padding: 2px 6px; background-color: rgba(255,255,255,0.03); border-radius: 4px; margin-right: 4px;">${acct ? acct.name : l.code} (${dir} $${amt.toFixed(2)})</span>`;
+        }).join(" ");
+        return `
                   <tr>
                     <td style="font-family: monospace; font-weight: 700; color: var(--color-primary);">${je.id}</td>
                     <td>${je.date}</td>
@@ -207,13 +198,13 @@ export function renderDashboard(container) {
                     <td style="white-space: normal;">${accountsUsed}</td>
                   </tr>
                 `;
-              }).join("")}
+    }).join("")}
             </tbody>
           </table>
         </div>
       </div>
     </div>
   `;
-
-  container.innerHTML = html;
+    container.innerHTML = html;
 }
+//# sourceMappingURL=dashboard.js.map

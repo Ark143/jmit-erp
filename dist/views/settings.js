@@ -1,10 +1,8 @@
 // JMIT ERP - Settings & Business Partners Module View (Phase 2)
-import { store } from "../store";
-
+import { store } from "../store.js";
 export function renderSettings(container, pathParts) {
-  const subRoute = pathParts[1] || "config";
-
-  const html = `
+    const subRoute = pathParts[1] || "config";
+    const html = `
     <div class="settings-container animate-fade-in">
       <!-- Settings Tab Nav -->
       <div class="settings-tab-nav">
@@ -22,34 +20,30 @@ export function renderSettings(container, pathParts) {
       <div id="settings-content-viewport"></div>
     </div>
   `;
-
-  container.innerHTML = html;
-
-  const contentViewport = container.querySelector("#settings-content-viewport");
-
-  if (subRoute === "config") {
-    renderConfig(contentViewport);
-  } else if (subRoute === "partners") {
-    renderPartners(contentViewport);
-  } else if (subRoute === "workflows") {
-    renderWorkflowsAndRoles(contentViewport);
-  }
+    container.innerHTML = html;
+    const contentViewport = container.querySelector("#settings-content-viewport");
+    if (subRoute === "config") {
+        renderConfig(contentViewport);
+    }
+    else if (subRoute === "partners") {
+        renderPartners(contentViewport);
+    }
+    else if (subRoute === "workflows") {
+        renderWorkflowsAndRoles(contentViewport);
+    }
 }
-
 // Render Global Configuration Sub-Tab
 function renderConfig(container) {
-  const settings = store.getSettings();
-  const companies = store.getCompanies();
-  const periods = store.getPeriods();
-  const accounts = store.getAccounts().filter(a => a.parentCode !== null); // leaf nodes only for mapping
-  const maps = settings.glMappings;
-
-  // Options for Account Tagging Dropdowns
-  const accountOptions = (selected) => {
-    return accounts.map(a => `<option value="${a.code}" ${a.code === selected ? 'selected' : ''}>${a.code} - ${a.name}</option>`).join("");
-  };
-
-  const html = `
+    const settings = store.getSettings();
+    const companies = store.getCompanies();
+    const periods = store.getPeriods();
+    const accounts = store.getAccounts().filter(a => a.parentCode !== null); // leaf nodes only for mapping
+    const maps = settings.glMappings;
+    // Options for Account Tagging Dropdowns
+    const accountOptions = (selected) => {
+        return accounts.map(a => `<option value="${a.code}" ${a.code === selected ? 'selected' : ''}>${a.code} - ${a.name}</option>`).join("");
+    };
+    const html = `
     <div class="grid-2">
       <!-- Left Column: Company & Period Configs -->
       <div>
@@ -194,60 +188,53 @@ function renderConfig(container) {
     <!-- Inner Config Modals Mount -->
     <div id="inner-config-modal"></div>
   `;
-
-  container.innerHTML = html;
-
-  // Bind Actions for Config views
-  const modalMount = container.querySelector("#inner-config-modal");
-
-  // Company Select Change
-  container.querySelector("#active-company-select").addEventListener("change", (e) => {
-    store.state.settings.activeCompany = e.target.value;
-    const activeC = store.getActiveCompany();
-    store.state.settings.activeCurrency = activeC ? activeC.currency : "USD";
-    store.saveState();
-    window.showToast(`Switched active corporate entity to: ${activeC.name}. Header values synchronized.`, "info");
-  });
-
-  // Toggle Period Locks
-  container.querySelectorAll(".toggle-period-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const name = btn.getAttribute("data-name");
-      store.togglePeriod(name);
-      const period = store.getPeriods().find(p => p.name === name);
-      window.showToast(`Fiscal Period ${name} is now ${period.closed ? 'LOCKED (Closed)' : 'OPEN'}.`, "warning");
-      renderConfig(container);
+    container.innerHTML = html;
+    // Bind Actions for Config views
+    const modalMount = container.querySelector("#inner-config-modal");
+    // Company Select Change
+    container.querySelector("#active-company-select").addEventListener("change", (e) => {
+        store.state.settings.activeCompany = e.target.value;
+        const activeC = store.getActiveCompany();
+        store.state.settings.activeCurrency = activeC ? activeC.currency : "USD";
+        store.saveState();
+        window.showToast(`Switched active corporate entity to: ${activeC.name}. Header values synchronized.`, "info");
     });
-  });
-
-  // SKU settings Save
-  container.querySelector("#sku-rule-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    store.state.settings.skuRule.prefix = e.target.querySelector("#sku-prefix").value;
-    store.state.settings.skuRule.sequence = Number(e.target.querySelector("#sku-seq").value);
-    store.state.settings.skuRule.suffix = e.target.querySelector("#sku-suffix").value;
-    store.saveState();
-    window.showToast("SKU Autogeneration sequence rules updated.", "success");
-  });
-
-  // GL tagging Save
-  container.querySelector("#gl-mapping-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const selectElements = e.target.querySelectorAll("select");
-    selectElements.forEach(sel => {
-      store.state.settings.glMappings[sel.name] = sel.value;
+    // Toggle Period Locks
+    container.querySelectorAll(".toggle-period-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const name = btn.getAttribute("data-name");
+            store.togglePeriod(name);
+            const period = store.getPeriods().find(p => p.name === name);
+            window.showToast(`Fiscal Period ${name} is now ${period.closed ? 'LOCKED (Closed)' : 'OPEN'}.`, "warning");
+            renderConfig(container);
+        });
     });
-    store.saveState();
-    window.showToast("Default GL mapping definitions saved successfully.", "success");
-  });
-
-  // Add Company Wizard
-  const addBtn = container.querySelector("#add-company-btn");
-  if (!store.checkPermission("settings", "create")) {
-    addBtn.style.display = "none";
-  }
-  addBtn.addEventListener("click", () => {
-    modalMount.innerHTML = `
+    // SKU settings Save
+    container.querySelector("#sku-rule-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        store.state.settings.skuRule.prefix = e.target.querySelector("#sku-prefix").value;
+        store.state.settings.skuRule.sequence = Number(e.target.querySelector("#sku-seq").value);
+        store.state.settings.skuRule.suffix = e.target.querySelector("#sku-suffix").value;
+        store.saveState();
+        window.showToast("SKU Autogeneration sequence rules updated.", "success");
+    });
+    // GL tagging Save
+    container.querySelector("#gl-mapping-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const selectElements = e.target.querySelectorAll("select");
+        selectElements.forEach(sel => {
+            store.state.settings.glMappings[sel.name] = sel.value;
+        });
+        store.saveState();
+        window.showToast("Default GL mapping definitions saved successfully.", "success");
+    });
+    // Add Company Wizard
+    const addBtn = container.querySelector("#add-company-btn");
+    if (!store.checkPermission("settings", "create")) {
+        addBtn.style.display = "none";
+    }
+    addBtn.addEventListener("click", () => {
+        modalMount.innerHTML = `
       <div class="modal-overlay">
         <div class="modal-content">
           <div class="modal-header">
@@ -287,37 +274,35 @@ function renderConfig(container) {
         </div>
       </div>
     `;
-
-    const close = () => modalMount.innerHTML = "";
-    modalMount.querySelector(".modal-close").addEventListener("click", close);
-    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
-    
-    modalMount.querySelector("#new-company-form").addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      const comp = {
-        name: ev.target.querySelector("#comp-name").value,
-        address: ev.target.querySelector("#comp-address").value,
-        taxId: ev.target.targetId || ev.target.querySelector("#comp-taxid").value,
-        currency: ev.target.querySelector("#comp-currency").value
-      };
-      store.addCompany(comp);
-      window.showToast(`Company "${comp.name}" successfully registered.`, "success");
-      close();
-      renderConfig(container);
+        const close = () => modalMount.innerHTML = "";
+        modalMount.querySelector(".modal-close").addEventListener("click", close);
+        modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+        modalMount.querySelector("#new-company-form").addEventListener("submit", (ev) => {
+            ev.preventDefault();
+            const comp = {
+                name: ev.target.querySelector("#comp-name").value,
+                address: ev.target.querySelector("#comp-address").value,
+                taxId: ev.target.targetId || ev.target.querySelector("#comp-taxid").value,
+                currency: ev.target.querySelector("#comp-currency").value
+            };
+            store.addCompany(comp);
+            window.showToast(`Company "${comp.name}" successfully registered.`, "success");
+            close();
+            renderConfig(container);
+        });
     });
-  });
-
-  // Edit Company
-  container.querySelectorAll(".edit-company-btn").forEach(btn => {
-    if (!store.checkPermission("settings", "update")) {
-      btn.style.display = "none";
-      return;
-    }
-    btn.addEventListener("click", () => {
-      const companyId = btn.getAttribute("data-company-id");
-      const company = store.getCompanies().find(c => c.id === companyId);
-      if (!company) return;
-      modalMount.innerHTML = `
+    // Edit Company
+    container.querySelectorAll(".edit-company-btn").forEach(btn => {
+        if (!store.checkPermission("settings", "update")) {
+            btn.style.display = "none";
+            return;
+        }
+        btn.addEventListener("click", () => {
+            const companyId = btn.getAttribute("data-company-id");
+            const company = store.getCompanies().find(c => c.id === companyId);
+            if (!company)
+                return;
+            modalMount.innerHTML = `
         <div class="modal-overlay">
           <div class="modal-content">
             <div class="modal-header">
@@ -357,54 +342,55 @@ function renderConfig(container) {
           </div>
         </div>
       `;
-      const close = () => modalMount.innerHTML = "";
-      modalMount.querySelector(".modal-close").addEventListener("click", close);
-      modalMount.querySelector(".modal-cancel").addEventListener("click", close);
-      modalMount.querySelector("#edit-company-form").addEventListener("submit", (ev) => {
-        ev.preventDefault();
-        const updated = {
-          name: ev.target.querySelector("#comp-name").value,
-          address: ev.target.querySelector("#comp-address").value,
-          taxId: ev.target.querySelector("#comp-taxid").value,
-          currency: ev.target.querySelector("#comp-currency").value
-        };
-        try {
-          store.editCompany(companyId, updated);
-          window.showToast(`Company "${updated.name}" updated successfully.`, "success");
-          close();
-          renderConfig(container);
-        } catch (err) {
-          window.showToast(err.message, "danger");
-        }
-      });
+            const close = () => modalMount.innerHTML = "";
+            modalMount.querySelector(".modal-close").addEventListener("click", close);
+            modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+            modalMount.querySelector("#edit-company-form").addEventListener("submit", (ev) => {
+                ev.preventDefault();
+                const updated = {
+                    name: ev.target.querySelector("#comp-name").value,
+                    address: ev.target.querySelector("#comp-address").value,
+                    taxId: ev.target.querySelector("#comp-taxid").value,
+                    currency: ev.target.querySelector("#comp-currency").value
+                };
+                try {
+                    store.editCompany(companyId, updated);
+                    window.showToast(`Company "${updated.name}" updated successfully.`, "success");
+                    close();
+                    renderConfig(container);
+                }
+                catch (err) {
+                    window.showToast(err.message, "danger");
+                }
+            });
+        });
     });
-  });
-
-  // Delete Company
-  container.querySelectorAll(".delete-company-btn").forEach(btn => {
-    if (!store.checkPermission("settings", "delete")) {
-      btn.style.display = "none";
-      return;
-    }
-    btn.addEventListener("click", () => {
-      const companyId = btn.getAttribute("data-company-id");
-      const company = store.getCompanies().find(c => c.id === companyId);
-      if (!company) return;
-      if (confirm(`Permanently delete company "${company.name}"? This action cannot be undone.`)) {
-        try {
-          store.deleteCompany(companyId);
-          window.showToast(`Company "${company.name}" deleted.`, "warning");
-          renderConfig(container);
-        } catch (err) {
-          window.showToast(err.message, "danger");
+    // Delete Company
+    container.querySelectorAll(".delete-company-btn").forEach(btn => {
+        if (!store.checkPermission("settings", "delete")) {
+            btn.style.display = "none";
+            return;
         }
-      }
+        btn.addEventListener("click", () => {
+            const companyId = btn.getAttribute("data-company-id");
+            const company = store.getCompanies().find(c => c.id === companyId);
+            if (!company)
+                return;
+            if (confirm(`Permanently delete company "${company.name}"? This action cannot be undone.`)) {
+                try {
+                    store.deleteCompany(companyId);
+                    window.showToast(`Company "${company.name}" deleted.`, "warning");
+                    renderConfig(container);
+                }
+                catch (err) {
+                    window.showToast(err.message, "danger");
+                }
+            }
+        });
     });
-  });
-
-  // Open New Period Wizard
-  container.querySelector("#add-period-btn").addEventListener("click", () => {
-    modalMount.innerHTML = `
+    // Open New Period Wizard
+    container.querySelector("#add-period-btn").addEventListener("click", () => {
+        modalMount.innerHTML = `
       <div class="modal-overlay">
         <div class="modal-content">
           <div class="modal-header">
@@ -436,31 +422,27 @@ function renderConfig(container) {
         </div>
       </div>
     `;
-
-    const close = () => modalMount.innerHTML = "";
-    modalMount.querySelector(".modal-close").addEventListener("click", close);
-    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
-    
-    modalMount.querySelector("#new-period-form").addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      const per = {
-        name: ev.target.querySelector("#per-name").value,
-        start: ev.target.querySelector("#per-start").value,
-        end: ev.target.querySelector("#per-end").value
-      };
-      store.addPeriod(per);
-      window.showToast(`Opened fiscal period: ${per.name}`, "success");
-      close();
-      renderConfig(container);
+        const close = () => modalMount.innerHTML = "";
+        modalMount.querySelector(".modal-close").addEventListener("click", close);
+        modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+        modalMount.querySelector("#new-period-form").addEventListener("submit", (ev) => {
+            ev.preventDefault();
+            const per = {
+                name: ev.target.querySelector("#per-name").value,
+                start: ev.target.querySelector("#per-start").value,
+                end: ev.target.querySelector("#per-end").value
+            };
+            store.addPeriod(per);
+            window.showToast(`Opened fiscal period: ${per.name}`, "success");
+            close();
+            renderConfig(container);
+        });
     });
-  });
 }
-
 // Render Business Partners Sub-Tab
 function renderPartners(container) {
-  const partners = store.getPartners();
-
-  const html = `
+    const partners = store.getPartners();
+    const html = `
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
       <h3 style="font-size: 1.15rem;">Business Contacts Directory</h3>
       <button id="add-partner-btn" class="btn btn-primary">
@@ -480,7 +462,7 @@ function renderPartners(container) {
             <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: var(--radius-sm); background-color: rgba(255,255,255,0.015);">
               <strong>${c.name}</strong> <span style="font-family: monospace; font-size:0.75rem; color: var(--color-o2c); float: right;">${c.id}</span>
               <div class="text-muted" style="font-size: 0.75rem; margin-top: 4px;">
-                TIN: ${c.taxId} | VAT: ${(c.taxRate*100)}% | WHT: ${(c.whtRate*100)}%
+                TIN: ${c.taxId} | VAT: ${(c.taxRate * 100)}% | WHT: ${(c.whtRate * 100)}%
                 <div style="margin-top: 2px;">Email: ${c.email}</div>
                 <div>Address: ${c.address}</div>
               </div>
@@ -531,14 +513,11 @@ function renderPartners(container) {
     <!-- Modals Mount -->
     <div id="partner-modal-mount"></div>
   `;
-
-  container.innerHTML = html;
-
-  const modalMount = container.querySelector("#partner-modal-mount");
-
-  // Add Partner Click
-  container.querySelector("#add-partner-btn").addEventListener("click", () => {
-    modalMount.innerHTML = `
+    container.innerHTML = html;
+    const modalMount = container.querySelector("#partner-modal-mount");
+    // Add Partner Click
+    container.querySelector("#add-partner-btn").addEventListener("click", () => {
+        modalMount.innerHTML = `
       <div class="modal-overlay">
         <div class="modal-content" style="max-width: 550px;">
           <div class="modal-header">
@@ -604,53 +583,46 @@ function renderPartners(container) {
         </div>
       </div>
     `;
-
-    const close = () => modalMount.innerHTML = "";
-    modalMount.querySelector(".modal-close").addEventListener("click", close);
-    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
-
-    const typeSelect = modalMount.querySelector("#part-type");
-    const taxRow = modalMount.querySelector("#customer-tax-config");
-    
-    typeSelect.addEventListener("change", () => {
-      if (typeSelect.value === "Customer") {
-        taxRow.style.display = "flex";
-      } else {
-        taxRow.style.display = "none";
-      }
+        const close = () => modalMount.innerHTML = "";
+        modalMount.querySelector(".modal-close").addEventListener("click", close);
+        modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+        const typeSelect = modalMount.querySelector("#part-type");
+        const taxRow = modalMount.querySelector("#customer-tax-config");
+        typeSelect.addEventListener("change", () => {
+            if (typeSelect.value === "Customer") {
+                taxRow.style.display = "flex";
+            }
+            else {
+                taxRow.style.display = "none";
+            }
+        });
+        modalMount.querySelector("#new-partner-form").addEventListener("submit", (ev) => {
+            ev.preventDefault();
+            const type = typeSelect.value;
+            const partner = {
+                name: ev.target.querySelector("#part-name").value,
+                contact: ev.target.querySelector("#part-contact").value,
+                email: ev.target.querySelector("#part-email").value,
+                phone: ev.target.querySelector("#part-phone").value,
+                address: ev.target.querySelector("#part-address").value,
+                taxId: ev.target.querySelector("#part-taxid").value || "N/A"
+            };
+            if (type === "Customer") {
+                partner.taxRate = Number(ev.target.querySelector("#part-vat").value);
+                partner.whtRate = Number(ev.target.querySelector("#part-wht").value);
+            }
+            store.addPartner(type, partner);
+            window.showToast(`Business Partner "${partner.name}" saved as ${type}.`, "success");
+            close();
+            renderPartners(container);
+        });
     });
-
-    modalMount.querySelector("#new-partner-form").addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      const type = typeSelect.value;
-      const partner: any = {
-        name: ev.target.querySelector("#part-name").value,
-        contact: ev.target.querySelector("#part-contact").value,
-        email: ev.target.querySelector("#part-email").value,
-        phone: ev.target.querySelector("#part-phone").value,
-        address: ev.target.querySelector("#part-address").value,
-        taxId: ev.target.querySelector("#part-taxid").value || "N/A"
-      };
-
-      if (type === "Customer") {
-        partner.taxRate = Number(ev.target.querySelector("#part-vat").value);
-        partner.whtRate = Number(ev.target.querySelector("#part-wht").value);
-      }
-
-      store.addPartner(type, partner);
-      window.showToast(`Business Partner "${partner.name}" saved as ${type}.`, "success");
-      close();
-      renderPartners(container);
-    });
-  });
 }
-
 function renderWorkflowsAndRoles(container) {
-  const settings = store.getSettings();
-  const reqs = settings.workflowRequirements || {};
-  const roles = store.getRoles();
-
-  container.innerHTML = `
+    const settings = store.getSettings();
+    const reqs = settings.workflowRequirements || {};
+    const roles = store.getRoles();
+    container.innerHTML = `
     <div class="grid-main-side animate-fade-in">
       <!-- Workflow Configurations Switches -->
       <div class="card">
@@ -732,26 +704,23 @@ function renderWorkflowsAndRoles(container) {
       </div>
     </div>
   `;
-
-  const roleSelect = container.querySelector("#role-select");
-  const matrixBody = container.querySelector("#permissions-matrix-body");
-  
-  const modulesList = [
-    { key: "o2c", name: "Sales & O2C Operations" },
-    { key: "p2p", name: "Procurement & P2P Engine" },
-    { key: "inventory", name: "Inventory & Stock" },
-    { key: "accounting", name: "Finance & GL" },
-    { key: "finance", name: "Treasury Payments / Fixed Assets" },
-    { key: "settings", name: "Setup & System Configuration" }
-  ];
-
-  const loadRolePermissions = (roleId) => {
-    const role = roles.find(r => r.id === roleId);
-    if (!role) return;
-
-    matrixBody.innerHTML = modulesList.map(m => {
-      const p = role.permissions[m.key] || { read: false, create: false, update: false, delete: false, approve: false };
-      return `
+    const roleSelect = container.querySelector("#role-select");
+    const matrixBody = container.querySelector("#permissions-matrix-body");
+    const modulesList = [
+        { key: "o2c", name: "Sales & O2C Operations" },
+        { key: "p2p", name: "Procurement & P2P Engine" },
+        { key: "inventory", name: "Inventory & Stock" },
+        { key: "accounting", name: "Finance & GL" },
+        { key: "finance", name: "Treasury Payments / Fixed Assets" },
+        { key: "settings", name: "Setup & System Configuration" }
+    ];
+    const loadRolePermissions = (roleId) => {
+        const role = roles.find(r => r.id === roleId);
+        if (!role)
+            return;
+        matrixBody.innerHTML = modulesList.map(m => {
+            const p = role.permissions[m.key] || { read: false, create: false, update: false, delete: false, approve: false };
+            return `
         <tr>
           <td><strong>${m.name}</strong></td>
           <td style="text-align:center;"><input type="checkbox" class="perm-chk" data-mod="${m.key}" data-act="read" ${p.read ? 'checked' : ''} /></td>
@@ -761,66 +730,60 @@ function renderWorkflowsAndRoles(container) {
           <td style="text-align:center;"><input type="checkbox" class="perm-chk" data-mod="${m.key}" data-act="approve" ${p.approve ? 'checked' : ''} /></td>
         </tr>
       `;
-    }).join("");
-  };
-
-  roleSelect.addEventListener("change", (e) => loadRolePermissions(e.target.value));
-
-  // Init
-  loadRolePermissions(roleSelect.value);
-
-  // Bind Workflow requirements submit
-  container.querySelector("#workflow-reqs-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const reqsObj = {
-      soApproval: e.target.querySelector("#wf-soApproval").checked,
-      dnSubmission: e.target.querySelector("#wf-dnSubmission").checked,
-      siSubmission: e.target.querySelector("#wf-siSubmission").checked,
-      poApproval: e.target.querySelector("#wf-poApproval").checked,
-      grnSubmission: e.target.querySelector("#wf-grnSubmission").checked,
-      piSubmission: e.target.querySelector("#wf-piSubmission").checked,
-      paymentSubmission: e.target.querySelector("#wf-paymentSubmission").checked,
-      journalSubmission: e.target.querySelector("#wf-journalSubmission").checked
+        }).join("");
     };
-
-    try {
-      store.updateWorkflowRequirements(reqsObj);
-      window.showToast("Global document workflow approval rules updated successfully.", "success");
-    } catch(err) {
-      window.showToast(err.message, "danger");
-    }
-  });
-
-  // Bind Permissions Matrix submit
-  container.querySelector("#role-permissions-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const roleId = roleSelect.value;
-    const permissions = {};
-
-    modulesList.forEach(m => {
-      permissions[m.key] = {
-        read: false,
-        create: false,
-        update: false,
-        delete: false,
-        approve: false
-      };
+    roleSelect.addEventListener("change", (e) => loadRolePermissions(e.target.value));
+    // Init
+    loadRolePermissions(roleSelect.value);
+    // Bind Workflow requirements submit
+    container.querySelector("#workflow-reqs-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const reqsObj = {
+            soApproval: e.target.querySelector("#wf-soApproval").checked,
+            dnSubmission: e.target.querySelector("#wf-dnSubmission").checked,
+            siSubmission: e.target.querySelector("#wf-siSubmission").checked,
+            poApproval: e.target.querySelector("#wf-poApproval").checked,
+            grnSubmission: e.target.querySelector("#wf-grnSubmission").checked,
+            piSubmission: e.target.querySelector("#wf-piSubmission").checked,
+            paymentSubmission: e.target.querySelector("#wf-paymentSubmission").checked,
+            journalSubmission: e.target.querySelector("#wf-journalSubmission").checked
+        };
+        try {
+            store.updateWorkflowRequirements(reqsObj);
+            window.showToast("Global document workflow approval rules updated successfully.", "success");
+        }
+        catch (err) {
+            window.showToast(err.message, "danger");
+        }
     });
-
-    e.target.querySelectorAll(".perm-chk").forEach(chk => {
-      const mod = chk.getAttribute("data-mod");
-      const act = chk.getAttribute("data-act");
-      permissions[mod][act] = chk.checked;
+    // Bind Permissions Matrix submit
+    container.querySelector("#role-permissions-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const roleId = roleSelect.value;
+        const permissions = {};
+        modulesList.forEach(m => {
+            permissions[m.key] = {
+                read: false,
+                create: false,
+                update: false,
+                delete: false,
+                approve: false
+            };
+        });
+        e.target.querySelectorAll(".perm-chk").forEach(chk => {
+            const mod = chk.getAttribute("data-mod");
+            const act = chk.getAttribute("data-act");
+            permissions[mod][act] = chk.checked;
+        });
+        try {
+            store.updateRolePermissions(roleId, permissions);
+            window.showToast(`Permissions matrix for "${roles.find(r => r.id === roleId).name}" updated successfully.`, "success");
+            // Update sidebar Mega Menu in case active role permissions changed
+            window.dispatchEvent(new CustomEvent("erp-state-updated"));
+        }
+        catch (err) {
+            window.showToast(err.message, "danger");
+        }
     });
-
-    try {
-      store.updateRolePermissions(roleId, permissions);
-      window.showToast(`Permissions matrix for "${roles.find(r => r.id === roleId).name}" updated successfully.`, "success");
-      
-      // Update sidebar Mega Menu in case active role permissions changed
-      window.dispatchEvent(new CustomEvent("erp-state-updated"));
-    } catch(err) {
-      window.showToast(err.message, "danger");
-    }
-  });
 }
+//# sourceMappingURL=settings.js.map

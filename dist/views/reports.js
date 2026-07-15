@@ -1,19 +1,15 @@
 // JMIT ERP - Real-Time Financial Statements & Reports View Module (Phase 2)
-import { store } from "../store";
-
+import { store } from "../store.js";
 // Global selected company filter for reports
 let selectedCompanyFilter = "";
-
 export function renderReports(container, pathParts) {
-  const subReport = pathParts[1] || "pl";
-  const companies = store.getCompanies();
-
-  // Set default filter to active company if not set
-  if (selectedCompanyFilter === "") {
-    selectedCompanyFilter = store.getSettings().activeCompany;
-  }
-
-  const html = `
+    const subReport = pathParts[1] || "pl";
+    const companies = store.getCompanies();
+    // Set default filter to active company if not set
+    if (selectedCompanyFilter === "") {
+        selectedCompanyFilter = store.getSettings().activeCompany;
+    }
+    const html = `
     <div class="reports-container animate-fade-in">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <div style="display: flex; align-items: center; gap: 14px;">
@@ -38,87 +34,76 @@ export function renderReports(container, pathParts) {
       <div id="reporting-sheet-viewport"></div>
     </div>
   `;
-
-  container.innerHTML = html;
-  const viewport = container.querySelector("#reporting-sheet-viewport");
-
-  // Bind change filter
-  container.querySelector("#report-company-filter").addEventListener("change", (e) => {
-    selectedCompanyFilter = e.target.value;
+    container.innerHTML = html;
+    const viewport = container.querySelector("#reporting-sheet-viewport");
+    // Bind change filter
+    container.querySelector("#report-company-filter").addEventListener("change", (e) => {
+        selectedCompanyFilter = e.target.value;
+        loadReport(subReport, viewport);
+    });
+    // Bind sub-navigation
+    container.querySelectorAll(".sub-report-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const type = btn.getAttribute("data-report");
+            window.location.hash = `#reports/${type}`;
+        });
+    });
     loadReport(subReport, viewport);
-  });
-
-  // Bind sub-navigation
-  container.querySelectorAll(".sub-report-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const type = btn.getAttribute("data-report");
-      window.location.hash = `#reports/${type}`;
-    });
-  });
-
-  loadReport(subReport, viewport);
 }
-
 function loadReport(reportType, viewport) {
-  if (reportType === "pl") {
-    renderPL(viewport, selectedCompanyFilter);
-  } else if (reportType === "bs") {
-    renderBS(viewport, selectedCompanyFilter);
-  } else if (reportType === "valuation") {
-    renderValuation(viewport, selectedCompanyFilter);
-  }
+    if (reportType === "pl") {
+        renderPL(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "bs") {
+        renderBS(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "valuation") {
+        renderValuation(viewport, selectedCompanyFilter);
+    }
 }
-
 // --- RECURSIVE COA BALANCE CALCULATOR BY COMPANY ---
-
 const getCompanyAccountBalance = (accountCode, companyId) => {
-  const account = store.getAccount(accountCode);
-  if (!account) return 0;
-  
-  let balance = 0;
-  const jes = store.getJournalEntries().filter(je => !companyId || je.companyId === companyId);
-  
-  jes.forEach(je => {
-    je.lines.forEach(l => {
-      if (l.code === accountCode) {
-        if (account.type === "Asset" || account.type === "Expense") {
-          balance += (l.debit - l.credit);
-        } else {
-          balance += (l.credit - l.debit);
-        }
-      }
+    const account = store.getAccount(accountCode);
+    if (!account)
+        return 0;
+    let balance = 0;
+    const jes = store.getJournalEntries().filter(je => !companyId || je.companyId === companyId);
+    jes.forEach(je => {
+        je.lines.forEach(l => {
+            if (l.code === accountCode) {
+                if (account.type === "Asset" || account.type === "Expense") {
+                    balance += (l.debit - l.credit);
+                }
+                else {
+                    balance += (l.credit - l.debit);
+                }
+            }
+        });
     });
-  });
-
-  return balance;
+    return balance;
 };
-
 const getCOABalance = (code, companyId) => {
-  const acct = store.getAccount(code);
-  if (!acct) return 0;
-  const children = store.getAccounts().filter(a => a.parentCode === code);
-  if (children.length === 0) {
-    return getCompanyAccountBalance(code, companyId);
-  }
-  return children.reduce((sum, child) => sum + getCOABalance(child.code, companyId), 0);
+    const acct = store.getAccount(code);
+    if (!acct)
+        return 0;
+    const children = store.getAccounts().filter(a => a.parentCode === code);
+    if (children.length === 0) {
+        return getCompanyAccountBalance(code, companyId);
+    }
+    return children.reduce((sum, child) => sum + getCOABalance(child.code, companyId), 0);
 };
-
 // --- STATEMENT RENDERERS ---
-
 function renderPL(viewport, companyId) {
-  const sales = getCOABalance("4100", companyId);
-  const cogs = getCOABalance("5100", companyId);
-  const opex = getCOABalance("6010", companyId);
-  const depr = getCOABalance("6100", companyId);
-
-  const grossProfit = sales - cogs;
-  const totalExpenses = opex + depr;
-  const netIncome = grossProfit - totalExpenses;
-
-  const compObj = store.getCompanies().find(c => c.id === companyId);
-  const compName = compObj ? compObj.name : "Consolidated Group Org";
-
-  viewport.innerHTML = `
+    const sales = getCOABalance("4100", companyId);
+    const cogs = getCOABalance("5100", companyId);
+    const opex = getCOABalance("6010", companyId);
+    const depr = getCOABalance("6100", companyId);
+    const grossProfit = sales - cogs;
+    const totalExpenses = opex + depr;
+    const netIncome = grossProfit - totalExpenses;
+    const compObj = store.getCompanies().find(c => c.id === companyId);
+    const compName = compObj ? compObj.name : "Consolidated Group Org";
+    viewport.innerHTML = `
     <div class="card report-sheet animate-fade-in">
       <div class="report-header">
         <div class="report-org">${compName}</div>
@@ -170,37 +155,30 @@ function renderPL(viewport, companyId) {
     </div>
   `;
 }
-
 function renderBS(viewport, companyId) {
-  // Current Assets
-  const cash = getCOABalance("1010", companyId);
-  const ar = getCOABalance("1200", companyId);
-  const whtAsset = getCOABalance("1210", companyId);
-  const inventory = getCOABalance("1300", companyId);
-  const fixed = getCOABalance("1800", companyId);
-  const accumDepr = getCOABalance("1810", companyId);
-  
-  const totalAssets = cash + ar + whtAsset + inventory + fixed + accumDepr;
-
-  // Liabilities
-  const ap = getCOABalance("2010", companyId);
-  const tax = getCOABalance("2200", companyId);
-  const whtLiab = getCOABalance("2220", companyId);
-  const totalLiabilities = ap + tax + whtLiab;
-
-  // Equity
-  const capital = getCOABalance("3010", companyId);
-  const retained = getCOABalance("3100", companyId);
-  const totalEquity = capital + retained;
-
-  const totalLiabilitiesEquity = totalLiabilities + totalEquity;
-  const variance = Math.abs(totalAssets - totalLiabilitiesEquity);
-  const isBalanced = variance < 0.05;
-
-  const compObj = store.getCompanies().find(c => c.id === companyId);
-  const compName = compObj ? compObj.name : "Consolidated Group Org";
-
-  viewport.innerHTML = `
+    // Current Assets
+    const cash = getCOABalance("1010", companyId);
+    const ar = getCOABalance("1200", companyId);
+    const whtAsset = getCOABalance("1210", companyId);
+    const inventory = getCOABalance("1300", companyId);
+    const fixed = getCOABalance("1800", companyId);
+    const accumDepr = getCOABalance("1810", companyId);
+    const totalAssets = cash + ar + whtAsset + inventory + fixed + accumDepr;
+    // Liabilities
+    const ap = getCOABalance("2010", companyId);
+    const tax = getCOABalance("2200", companyId);
+    const whtLiab = getCOABalance("2220", companyId);
+    const totalLiabilities = ap + tax + whtLiab;
+    // Equity
+    const capital = getCOABalance("3010", companyId);
+    const retained = getCOABalance("3100", companyId);
+    const totalEquity = capital + retained;
+    const totalLiabilitiesEquity = totalLiabilities + totalEquity;
+    const variance = Math.abs(totalAssets - totalLiabilitiesEquity);
+    const isBalanced = variance < 0.05;
+    const compObj = store.getCompanies().find(c => c.id === companyId);
+    const compName = compObj ? compObj.name : "Consolidated Group Org";
+    viewport.innerHTML = `
     <div class="card report-sheet animate-fade-in">
       <div class="report-header">
         <div class="report-org">${compName}</div>
@@ -294,14 +272,11 @@ function renderBS(viewport, companyId) {
     </div>
   `;
 }
-
 function renderValuation(viewport, companyId) {
-  const items = store.getItems();
-  const warehouses = store.getWarehouses();
-
-  let totalAssetSum = 0;
-
-  viewport.innerHTML = `
+    const items = store.getItems();
+    const warehouses = store.getWarehouses();
+    let totalAssetSum = 0;
+    viewport.innerHTML = `
     <div class="card report-sheet animate-fade-in">
       <div class="report-header">
         <div class="report-org">JMIT Enterprises Inc.</div>
@@ -324,11 +299,10 @@ function renderValuation(viewport, companyId) {
           </thead>
           <tbody>
             ${items.map(item => {
-              const totalQty = warehouses.reduce((sum, w) => sum + (item.stocks[w.id] || 0), 0);
-              const val = totalQty * item.cost;
-              totalAssetSum += val;
-
-              return `
+        const totalQty = warehouses.reduce((sum, w) => sum + (item.stocks[w.id] || 0), 0);
+        const val = totalQty * item.cost;
+        totalAssetSum += val;
+        return `
                 <tr>
                   <td style="font-family: monospace; font-weight: 700; color: var(--color-inventory);">${item.sku}</td>
                   <td><strong>${item.name}</strong></td>
@@ -339,14 +313,14 @@ function renderValuation(viewport, companyId) {
                   <td style="font-weight: 700; color: var(--text-primary);">$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 </tr>
               `;
-            }).join("")}
+    }).join("")}
             <tr style="border-top: 2px solid var(--border-color); background-color: rgba(255,255,255,0.015);">
               <td colspan="4"><strong>Consolidated Totals</strong></td>
               ${warehouses.map(w => {
-                const whSum = items.reduce((sum, i) => sum + (i.stocks[w.id] || 0), 0);
-                return `<td style="font-weight:600;">${whSum}</td>`;
-              }).join("")}
-              <td style="font-weight: 700;">${items.reduce((sum: number, i: any) => sum + (Object.values(i.stocks) as number[]).reduce((a: number, b: number) => a + b, 0), 0)}</td>
+        const whSum = items.reduce((sum, i) => sum + (i.stocks[w.id] || 0), 0);
+        return `<td style="font-weight:600;">${whSum}</td>`;
+    }).join("")}
+              <td style="font-weight: 700;">${items.reduce((sum, i) => sum + Object.values(i.stocks).reduce((a, b) => a + b, 0), 0)}</td>
               <td style="font-weight: 800; color: var(--color-inventory); font-size: 1rem;">$${totalAssetSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             </tr>
           </tbody>
@@ -355,3 +329,4 @@ function renderValuation(viewport, companyId) {
     </div>
   `;
 }
+//# sourceMappingURL=reports.js.map
