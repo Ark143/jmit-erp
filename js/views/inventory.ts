@@ -1,0 +1,571 @@
+// JMIT ERP - Inventory, Warehouses & Stock Entries Module View (Phase 2)
+import { store } from "../store";
+
+export function renderInventory(container, pathParts) {
+  const subPage = pathParts[1] || "items";
+  const action = pathParts[2];
+
+  const html = `
+    <div class="inventory-container animate-fade-in">
+      <!-- Sub Tab Navigation -->
+      <div class="settings-tab-nav">
+        <button class="settings-tab-btn ${subPage === 'items' ? 'active' : ''}" onclick="window.location.hash='#inventory/items'">
+          📦 Product Catalog
+        </button>
+        <button class="settings-tab-btn ${subPage === 'warehouses' ? 'active' : ''}" onclick="window.location.hash='#inventory/warehouses'">
+          🏢 Warehouse registries
+        </button>
+        <button class="settings-tab-btn ${subPage === 'stock-entries' ? 'active' : ''}" onclick="window.location.hash='#inventory/stock-entries'">
+          🔄 Stock Entries & Movements
+        </button>
+      </div>
+
+      <div id="inventory-content-viewport"></div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+  const viewport = container.querySelector("#inventory-content-viewport");
+
+  if (subPage === "items") {
+    renderItemsCatalog(viewport);
+  } else if (subPage === "warehouses") {
+    renderWarehousesList(viewport);
+  } else if (subPage === "stock-entries") {
+    if (action === "new") {
+      renderStockEntryForm(viewport);
+    } else {
+      renderStockEntriesList(viewport);
+    }
+  }
+}
+
+// --- 1. PRODUCT CATALOGUE RENDERER ---
+
+function renderItemsCatalog(container) {
+  const items = store.getItems();
+  const warehouses = store.getWarehouses();
+  const canCreateItem = store.checkPermission("inventory", "create");
+
+  container.innerHTML = `
+    <div class="card animate-fade-in">
+      <div class="card-header">
+        <h3 class="card-title">Stock Catalog Records</h3>
+        ${canCreateItem ? `<button id="add-item-btn" class="btn btn-primary btn-sm" style="background-color: var(--color-inventory);">+ Register New Item</button>` : ''}
+      </div>
+      
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Product Name</th>
+              <th>Category</th>
+              <th>UOM</th>
+              <th>Cost Price</th>
+              <th>Retail Price</th>
+              ${warehouses.map(w => `<th>${w.name}</th>`).join("")}
+              <th>Total Stock</th>
+              <th>Safety Limit</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(item => {
+              const totalStock = warehouses.reduce((sum, w) => sum + (item.stocks[w.id] || 0), 0);
+              const isLow = totalStock <= item.reorder;
+
+              return `
+                <tr>
+                  <td style="font-family: monospace; font-weight: 700; color: var(--color-inventory);">${item.sku}</td>
+                  <td><strong>${item.name}</strong></td>
+                  <td>${item.category}</td>
+                  <td><span class="badge badge-draft">${item.uom}</span></td>
+                  <td>$${item.cost.toFixed(2)}</td>
+                  <td>$${item.price.toFixed(2)}</td>
+                  ${warehouses.map(w => `
+                    <td style="font-weight: 600; color: var(--text-primary);">${item.stocks[w.id] || 0}</td>
+                  `).join("")}
+                  <td style="font-weight: 700; ${isLow ? 'color: var(--color-danger);' : 'color: var(--color-o2c);'}">${totalStock}</td>
+                  <td>${item.reorder}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Inner modal -->
+    <div id="catalog-modal"></div>
+  `;
+
+  // Bind register item wizard
+  const modalMount = container.querySelector("#catalog-modal");
+  const addItemBtn = container.querySelector("#add-item-btn");
+  if (addItemBtn) {
+    addItemBtn.addEventListener("click", () => {
+    let whOptions = warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join("");
+
+    modalMount.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">Register Product Catalog Item</h3>
+            <button class="modal-close">&times;</button>
+          </div>
+          <form id="new-item-form">
+            <div class="modal-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">SKU Generation</label>
+                  <select id="item-sku-type" class="form-control">
+                    <option value="auto">Auto-Generated SKU</option>
+                    <option value="manual">Manual Entry SKU</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Manual SKU Code</label>
+                  <input type="text" id="item-sku-manual" class="form-control" placeholder="HW-MON-5K" disabled />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Category</label>
+                  <select id="item-category" class="form-control">
+                    <option value="Hardware">Hardware</option>
+                    <option value="Furniture">Furniture</option>
+                    <option value="Accessories">Accessories</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">UOM (Unit of Measure)</label>
+                  <select id="item-uom" class="form-control">
+                    <option value="pcs">pcs (Single)</option>
+                    <option value="pack_of_5">pack of 5</option>
+                    <option value="box_of_10">box of 10</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Product Name Description</label>
+                <input type="text" id="item-name" class="form-control" placeholder="Dual Core Server Core" required />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Cost Price ($)</label>
+                  <input type="number" id="item-cost" class="form-control" min="0" step="0.01" value="100" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Sales Price ($)</label>
+                  <input type="number" id="item-price" class="form-control" min="0" step="0.01" value="180" required />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Initial Storage Warehouse</label>
+                  <select id="item-init-wh" class="form-control">
+                    ${whOptions}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Initial Stock Load Qty</label>
+                  <input type="number" id="item-init-qty" class="form-control" min="0" value="0" />
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline modal-cancel">Cancel</button>
+              <button type="submit" class="btn btn-primary" style="background-color: var(--color-inventory);">Register Item</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const close = () => modalMount.innerHTML = "";
+    modalMount.querySelector(".modal-close").addEventListener("click", close);
+    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+
+    const skuTypeSelect = modalMount.querySelector("#item-sku-type");
+    const skuManualInput = modalMount.querySelector("#item-sku-manual");
+
+    skuTypeSelect.addEventListener("change", () => {
+      if (skuTypeSelect.value === "manual") {
+        skuManualInput.disabled = false;
+        skuManualInput.required = true;
+      } else {
+        skuManualInput.disabled = true;
+        skuManualInput.required = false;
+        skuManualInput.value = "";
+      }
+    });
+
+    modalMount.querySelector("#new-item-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      
+      const itemData = {
+        autoSku: skuTypeSelect.value === "auto",
+        sku: skuManualInput.value,
+        name: ev.target.querySelector("#item-name").value,
+        category: ev.target.querySelector("#item-category").value,
+        uom: ev.target.querySelector("#item-uom").value,
+        cost: Number(ev.target.querySelector("#item-cost").value),
+        price: Number(ev.target.querySelector("#item-price").value),
+        initialWarehouseId: ev.target.querySelector("#item-init-wh").value,
+        initialStock: Number(ev.target.querySelector("#item-init-qty").value),
+        reorder: 5
+      };
+
+      store.addItem(itemData);
+
+      // Post capitalization GL posting if initial load is made
+      if (itemData.initialStock > 0) {
+        const val = itemData.initialStock * itemData.cost;
+        store.addManualJournalEntry(`Initial stock capitalization load SKU: ${itemData.name}`, [
+          { code: store.getSettings().glMappings.inventoryAccount, debit: val, credit: 0 },
+          { code: store.getSettings().glMappings.opexAccount, debit: 0, credit: val } // Offset adjustment opex
+        ]);
+      }
+
+      window.showToast(`Product registered successfully under item catalog registry.`, "success");
+      close();
+      renderItemsCatalog(container);
+    });
+  });
+  } // end if (addItemBtn)
+}
+
+// --- 2. WAREHOUSE REGISTRY RENDERER ---
+
+function renderWarehousesList(container) {
+  const warehouses = store.getWarehouses();
+  const canCreateWh = store.checkPermission("inventory", "create");
+
+  container.innerHTML = `
+    <div class="grid-main-side animate-fade-in">
+      <!-- List Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Registered Warehouses</h3>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name / Facility</th>
+                <th>Storage Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${warehouses.map(w => `
+                <tr>
+                  <td style="font-family: monospace; font-weight: 700; color: var(--color-inventory);">${w.id}</td>
+                  <td><strong>${w.name}</strong></td>
+                  <td>${w.address}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      ${canCreateWh ? `
+      <!-- Creation Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">New Warehouse</h3>
+        </div>
+        <form id="new-wh-form">
+          <div class="form-group">
+            <label class="form-label">Warehouse Name</label>
+            <input type="text" id="wh-name" class="form-control" placeholder="Cebu East Warehouse" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Facility Address</label>
+            <input type="text" id="wh-address" class="form-control" placeholder="Building 4, Reclamation, Cebu" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm btn-block" style="background-color: var(--color-inventory);">Save Facility</button>
+        </form>
+      </div>
+      ` : ''}
+    </div>
+  `;
+
+  const newWhForm = container.querySelector("#new-wh-form");
+  if (newWhForm) {
+    newWhForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const wh = {
+        name: e.target.querySelector("#wh-name").value,
+        address: e.target.querySelector("#wh-address").value
+      };
+      store.addWarehouse(wh);
+      window.showToast(`Warehouse facility "${wh.name}" created successfully.`, "success");
+      renderWarehousesList(container);
+    });
+  }
+}
+
+// --- 3. STOCK ENTRIES RENDERERS ---
+
+function renderStockEntriesList(container) {
+  const stockEntries = [...store.getStockEntries()].reverse();
+  const canCreateSe = store.checkPermission("inventory", "create");
+
+  container.innerHTML = `
+    <div class="card animate-fade-in">
+      <div class="card-header">
+        <h3 class="card-title">Stock Ledger Movements</h3>
+        ${canCreateSe ? `<button onclick="window.location.hash='#inventory/stock-entries/new'" class="btn btn-primary btn-sm" style="background-color: var(--color-inventory);">+ New Stock Entry</button>` : ''}
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Entry ID</th>
+              <th>Movement Type</th>
+              <th>Posting Date</th>
+              <th>Source Facility</th>
+              <th>Target Facility</th>
+              <th>Items Adjusted</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stockEntries.map(se => `
+              <tr>
+                <td style="font-family: monospace; font-weight: 700; color: var(--color-inventory);">${se.id}</td>
+                <td>
+                  <span class="badge ${se.type === 'Receipt' ? 'badge-success' : se.type === 'Issue' ? 'badge-danger' : 'badge-pending'}">${se.type}</span>
+                </td>
+                <td>${se.date}</td>
+                <td>${se.sourceWarehouseId ? store.getWarehouse(se.sourceWarehouseId).name : '-'}</td>
+                <td>${se.targetWarehouseId ? store.getWarehouse(se.targetWarehouseId).name : '-'}</td>
+                <td>
+                  ${se.items.map(i => {
+                    const item = store.getItem(i.itemId);
+                    const name = item ? item.name : "Item";
+                    if (se.type === "Receipt") {
+                      return `${name} (Accepted: ${i.acceptedQty}, Rejected: ${i.rejectedQty})`;
+                    } else {
+                      return `${name} (${i.qty} units)`;
+                    }
+                  }).join(", ")}
+                </td>
+                <td><em class="text-secondary">${se.reason}</em></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderStockEntryForm(container) {
+  const warehouses = store.getWarehouses();
+  const items = store.getItems();
+  
+  let whOptions = warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join("");
+  let itemOptions = items.map(i => `<option value="${i.id}">${i.name}</option>`).join("");
+
+  container.innerHTML = `
+    <div class="card animate-fade-in">
+      <div class="card-header">
+        <h3 class="card-title">Warehouse Stock Adjustment Entry</h3>
+        <button onclick="window.location.hash='#inventory/stock-entries'" class="btn btn-outline btn-sm">Cancel</button>
+      </div>
+
+      <form id="stock-entry-form">
+        <div class="grid-3">
+          <div class="form-group">
+            <label class="form-label">Entry Type</label>
+            <select id="se-type" class="form-control" required>
+              <option value="Receipt" selected>Receipt (Inward)</option>
+              <option value="Issue">Issue (Outward)</option>
+              <option value="Transfer">Transfer (Internal Movement)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Source Warehouse</label>
+            <select id="se-source" class="form-control" disabled>
+              <option value="" disabled selected>N/A</option>
+              ${whOptions}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Warehouse</label>
+            <select id="se-target" class="form-control">
+              ${whOptions}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Adjustment Reason Details</label>
+          <input type="text" id="se-reason" class="form-control" placeholder="Cycle count variance / damaged scrap write-off" required />
+        </div>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 10px;">Itemized Stock Lines</h4>
+          <table class="order-items-table">
+            <thead>
+              <tr id="se-table-headers">
+                <!-- Swapped dynamic columns -->
+              </tr>
+            </thead>
+            <tbody id="se-lines-body">
+            </tbody>
+          </table>
+          <button type="button" id="se-add-line" class="btn btn-outline btn-sm">+ Add Line Item</button>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+          <button type="submit" class="btn btn-primary" style="background-color: var(--color-inventory);">Post Stock Adjustment</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  const form = container.querySelector("#stock-entry-form");
+  const typeSelect = form.querySelector("#se-type");
+  const sourceSelect = form.querySelector("#se-source");
+  const targetSelect = form.querySelector("#se-target");
+  const tableHeaders = form.querySelector("#se-table-headers");
+  const linesBody = form.querySelector("#se-lines-body");
+  const addLineBtn = form.querySelector("#se-add-line");
+
+  // Sync Form elements on selection type changes
+  const syncFormType = () => {
+    const type = typeSelect.value;
+    linesBody.innerHTML = ""; // reset lines
+
+    if (type === "Receipt") {
+      sourceSelect.disabled = true;
+      sourceSelect.value = "";
+      targetSelect.disabled = false;
+      
+      tableHeaders.innerHTML = `
+        <th style="width: 45%;">Item Description</th>
+        <th style="width: 25%;">Accepted Qty</th>
+        <th style="width: 25%;">Rejected Qty</th>
+        <th style="width: 5%;"></th>
+      `;
+    } else if (type === "Issue") {
+      sourceSelect.disabled = false;
+      targetSelect.disabled = true;
+      targetSelect.value = "";
+
+      tableHeaders.innerHTML = `
+        <th style="width: 65%;">Item Description</th>
+        <th style="width: 30%;">Disburse Qty</th>
+        <th style="width: 5%;"></th>
+      `;
+    } else {
+      // Transfer
+      sourceSelect.disabled = false;
+      targetSelect.disabled = false;
+
+      tableHeaders.innerHTML = `
+        <th style="width: 65%;">Item Description</th>
+        <th style="width: 30%;">Movement Transfer Qty</th>
+        <th style="width: 5%;"></th>
+      `;
+    }
+
+    addLine(); // add first line
+  };
+
+  const addLine = () => {
+    const type = typeSelect.value;
+    const tr = document.createElement("tr");
+    tr.className = "se-line-row";
+
+    if (type === "Receipt") {
+      tr.innerHTML = `
+        <td>
+          <select class="form-control line-item" required>${itemOptions}</select>
+        </td>
+        <td>
+          <input type="number" class="form-control line-accepted" min="0" value="1" required />
+        </td>
+        <td>
+          <input type="number" class="form-control line-rejected" min="0" value="0" required />
+        </td>
+        <td>
+          <button type="button" class="btn btn-outline btn-sm remove-line" style="color:var(--color-danger); border-color:transparent;">&times;</button>
+        </td>
+      `;
+    } else {
+      tr.innerHTML = `
+        <td>
+          <select class="form-control line-item" required>${itemOptions}</select>
+        </td>
+        <td>
+          <input type="number" class="form-control line-qty" min="1" value="1" required />
+        </td>
+        <td>
+          <button type="button" class="btn btn-outline btn-sm remove-line" style="color:var(--color-danger); border-color:transparent;">&times;</button>
+        </td>
+      `;
+    }
+
+    linesBody.appendChild(tr);
+    tr.querySelector(".remove-line").addEventListener("click", () => tr.remove());
+  };
+
+  typeSelect.addEventListener("change", syncFormType);
+  addLineBtn.addEventListener("click", addLine);
+  
+  // Init
+  syncFormType();
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const type = typeSelect.value;
+    const sourceWh = sourceSelect.value;
+    const targetWh = targetSelect.value;
+    const reason = form.querySelector("#se-reason").value;
+
+    if (type === "Transfer" && sourceWh === targetWh) {
+      window.showToast("Source and Target warehouse facilities cannot be the same.", "warning");
+      return;
+    }
+
+    const lines = [];
+    form.querySelectorAll(".se-line-row").forEach(row => {
+      const itemId = row.querySelector(".line-item").value;
+      
+      if (type === "Receipt") {
+        const acceptedQty = Number(row.querySelector(".line-accepted").value);
+        const rejectedQty = Number(row.querySelector(".line-rejected").value);
+        lines.push({ itemId, acceptedQty, rejectedQty });
+      } else {
+        const qty = Number(row.querySelector(".line-qty").value);
+        lines.push({ itemId, qty });
+      }
+    });
+
+    try {
+      store.createStockEntry({
+        type,
+        sourceWarehouseId: sourceWh,
+        targetWarehouseId: targetWh,
+        reason,
+        items: lines,
+        date: new Date().toISOString().split("T")[0]
+      });
+
+      window.showToast("Warehouse Stock Entry adjustment processed successfully.", "success");
+      window.location.hash = "#inventory/stock-entries";
+    } catch (err) {
+      window.showToast(err.message, "danger");
+    }
+  });
+}
