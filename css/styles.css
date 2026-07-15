@@ -1,4 +1,4 @@
-/* JMIT ERP - Custom Stylesheet (Phase 2 Master) */
+/* JMIT ERP - Custom Stylesheet (Mega Menu Edition) */
 
 /* --- Custom Variables & Reset --- */
 :root {
@@ -10,6 +10,7 @@
   --bg-card: rgba(17, 22, 37, 0.65);
   --bg-card-hover: rgba(25, 32, 53, 0.85);
   --bg-input: rgba(10, 13, 22, 0.85);
+  --bg-mega-panel: #111625;
   
   --border-color: rgba(255, 255, 255, 0.06);
   --border-focus: rgba(99, 102, 241, 0.5);
@@ -43,6 +44,7 @@
   --shadow-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 16px -6px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+  --shadow-panel: 0 16px 40px -8px rgba(0, 0, 0, 0.6);
   
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -77,32 +79,34 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* --- Layout Grid --- */
+/* --- Layout Grid (vertical stack: header + main) --- */
 .app-container {
-  display: grid;
-  grid-template-columns: 260px 1fr;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
 }
 
-/* --- Sidebar --- */
-.sidebar {
-  background-color: var(--bg-sidebar);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 20px 14px;
-  height: 100%;
-  overflow-y: auto;
-}
-
-.sidebar-brand {
+/* =================================================================
+   TOP HEADER — Brand + Mega Nav + KPIs + User
+   ================================================================= */
+.top-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 8px 20px 8px;
+  gap: 20px;
+  height: 56px;
+  padding: 0 20px;
+  background-color: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-color);
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .brand-logo {
@@ -112,7 +116,7 @@ body {
 }
 
 .brand-name {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.025em;
   color: var(--text-primary);
@@ -122,106 +126,124 @@ body {
   color: var(--color-primary);
 }
 
-.sidebar-nav {
-  margin-top: 20px;
-  flex-grow: 1;
-}
-
-.menu-section {
-  margin-bottom: 8px;
-}
-
-.nav-item {
+/* =================================================================
+   MEGA MENU — Horizontal Navigation Bar
+   ================================================================= */
+.mega-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 2px;
+  flex-grow: 1;
+  height: 100%;
+}
+
+.mega-item {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.mega-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  text-decoration: none;
+  font-family: var(--font-family);
   font-weight: 600;
-  font-size: 0.9rem;
-  transition: var(--transition);
+  font-size: 0.82rem;
+  text-decoration: none;
+  background: transparent;
   border: 1px solid transparent;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  height: 36px;
 }
 
-.nav-item:hover {
+.mega-trigger:hover {
   color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: rgba(255, 255, 255, 0.04);
 }
 
-.nav-item.active {
+.mega-trigger.active,
+.mega-item.open > .mega-trigger {
   color: var(--text-primary);
   background-color: var(--color-primary-glow);
   border-color: rgba(99, 102, 241, 0.15);
 }
 
-.nav-item.active .nav-icon {
+.mega-trigger.active .nav-icon,
+.mega-item.open > .mega-trigger .nav-icon {
   color: var(--color-primary);
 }
 
-.nav-icon {
-  transition: var(--transition);
+.mega-trigger .nav-icon {
   color: var(--text-muted);
-}
-
-/* --- Accordion Mega Menu Styles --- */
-.accordion-trigger {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-family: var(--font-family);
-  font-weight: 600;
-  font-size: 0.9rem;
-  text-align: left;
-  cursor: pointer;
-  border-radius: var(--radius-md);
   transition: var(--transition);
 }
 
-.accordion-trigger:hover {
-  color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.03);
-}
-
-.accordion-trigger .chevron {
-  margin-left: auto;
+.mega-trigger .chevron {
+  margin-left: 2px;
   transition: transform 0.2s ease;
   color: var(--text-muted);
 }
 
-.accordion-content {
-  display: none;
-  padding-left: 28px;
-  margin-top: 4px;
-  flex-direction: column;
-  gap: 4px;
-  border-left: 1px dashed rgba(255, 255, 255, 0.08);
-  margin-left: 22px;
-}
-
-.accordion.open .accordion-content {
-  display: flex;
-}
-
-.accordion.open .accordion-trigger {
-  color: var(--text-primary);
-}
-
-.accordion.open .chevron {
+.mega-item.open > .mega-trigger .chevron {
   transform: rotate(180deg);
   color: var(--color-primary);
 }
 
-.sub-item {
+/* --- Mega Dropdown Panel --- */
+.mega-panel {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  background-color: var(--bg-mega-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  z-index: 200;
+  padding: 8px;
+  animation: megaFadeIn 0.15s ease-out;
+}
+
+.mega-item.open > .mega-panel {
   display: block;
-  padding: 8px 12px;
-  font-size: 0.85rem;
+}
+
+@keyframes megaFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.mega-panel-inner {
+  display: flex;
+  gap: 20px;
+}
+
+.mega-col {
+  min-width: 160px;
+}
+
+.mega-col-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 6px 10px 4px 10px;
+  margin-bottom: 2px;
+}
+
+.mega-link {
+  display: block;
+  padding: 7px 10px;
+  font-size: 0.82rem;
   font-weight: 500;
   color: var(--text-secondary);
   text-decoration: none;
@@ -229,67 +251,40 @@ body {
   transition: var(--transition);
 }
 
-.sub-item:hover {
+.mega-link:hover {
   color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: rgba(255, 255, 255, 0.04);
 }
 
-.sub-item.active {
+.mega-link.active {
   color: var(--color-primary);
   font-weight: 600;
-  background-color: rgba(99, 102, 241, 0.05);
+  background-color: rgba(99, 102, 241, 0.06);
 }
 
-.sidebar-footer {
-  padding-top: 14px;
-  border-top: 1px solid var(--border-color);
-}
-
-/* --- Main Layout --- */
-.main-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.top-header {
-  height: 70px;
-  background-color: rgba(8, 11, 18, 0.4);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  z-index: 10;
-}
-
-.page-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
+/* =================================================================
+   HEADER ACTIONS — KPIs + User Switcher + Utility Buttons
+   ================================================================= */
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 .live-badge-group {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .live-badge {
   background-color: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   display: flex;
-  gap: 6px;
+  gap: 5px;
   font-weight: 600;
   align-items: center;
 }
@@ -306,20 +301,20 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-left: 16px;
+  padding-left: 12px;
   border-left: 1px solid var(--border-color);
 }
 
 .profile-avatar {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
@@ -339,7 +334,34 @@ body {
   color: var(--text-muted);
 }
 
-/* --- Content Frame --- */
+/* =================================================================
+   MAIN CONTENT AREA
+   ================================================================= */
+.main-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+/* Page Title Bar */
+.page-title-bar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(8, 11, 18, 0.4);
+  flex-shrink: 0;
+}
+
+.page-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Content Frame */
 .content-body {
   flex-grow: 1;
   overflow-y: auto;

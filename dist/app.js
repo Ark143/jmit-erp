@@ -1,4 +1,4 @@
-// JMIT ERP - Application Orchestrator, Multi-Page Router & Security Guard (Phase 3)
+// JMIT ERP - Application Orchestrator, Multi-Page Router & Security Guard (Mega Menu Edition)
 import { store } from "./store.js";
 import { renderDashboard } from "./views/dashboard.js";
 import { renderO2C } from "./views/o2c.js";
@@ -27,128 +27,150 @@ const headerCashEl = document.getElementById("header-cash-value");
 const headerStockEl = document.getElementById("header-stock-value");
 const toastContainer = document.getElementById("toast-container");
 const resetDbBtn = document.getElementById("reset-db-btn");
-const sidebarNav = document.querySelector(".sidebar-nav");
-// Accordion toggle logic for Mega Menu
+const megaNav = document.getElementById("mega-nav");
+// =================================================================
+// MEGA MENU LOGIC
+// =================================================================
+let openPanel = null;
+// Toggle a mega menu dropdown panel
+function toggleMegaPanel(panel) {
+    const item = panel.closest(".mega-item");
+    if (!item)
+        return;
+    const isOpen = item.classList.contains("open");
+    // Close any currently open panel
+    if (openPanel && openPanel !== item) {
+        openPanel.classList.remove("open");
+    }
+    if (isOpen) {
+        item.classList.remove("open");
+        openPanel = null;
+    }
+    else {
+        item.classList.add("open");
+        openPanel = item;
+    }
+}
+// Close all mega panels
+function closeAllMegaPanels() {
+    megaNav.querySelectorAll(".mega-item.open").forEach(item => item.classList.remove("open"));
+    openPanel = null;
+}
+// Init mega menu event listeners
 function initMegaMenuUI() {
-    const accordions = document.querySelectorAll(".accordion");
-    accordions.forEach((acc) => {
-        const trigger = acc.querySelector(".accordion-trigger");
+    // Trigger clicks on mega-trigger buttons
+    megaNav.querySelectorAll(".mega-trigger").forEach((trigger) => {
         trigger.addEventListener("click", (e) => {
-            e.preventDefault();
-            // Only toggle if not disabled by RBAC
-            if (acc.style.pointerEvents === "none")
-                return;
-            const isOpen = acc.classList.contains("open");
-            // Close other accordions
-            accordions.forEach(other => other.classList.remove("open"));
-            if (!isOpen) {
-                acc.classList.add("open");
+            const item = trigger.closest(".mega-item");
+            const panel = item?.querySelector(".mega-panel");
+            // If it's a dashboard link (no panel), just navigate
+            if (!panel) {
+                closeAllMegaPanels();
+                return; // regular <a> href handles navigation
             }
+            // If the item is locked by RBAC, do nothing
+            if (item.style.pointerEvents === "none")
+                return;
+            e.preventDefault();
+            toggleMegaPanel(panel);
+        });
+    });
+    // Close panels when clicking outside
+    document.addEventListener("click", (e) => {
+        const target = e.target;
+        if (!target.closest(".mega-nav")) {
+            closeAllMegaPanels();
+        }
+    });
+    // Close panels on Escape
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape")
+            closeAllMegaPanels();
+    });
+    // Close panels when clicking a mega-link (navigate + close)
+    megaNav.querySelectorAll(".mega-link").forEach((link) => {
+        link.addEventListener("click", () => {
+            // Let the hash change propagate, then close
+            setTimeout(closeAllMegaPanels, 50);
         });
     });
 }
-// Visually dim and disable unauthorized sidebar options
+// RBAC: Dim/lock unauthorized menu items
 function filterSidebarMenuItems() {
-    const items = document.querySelectorAll(".sidebar-nav a, .sidebar-nav button.accordion-trigger, .sidebar-nav .menu-section");
-    items.forEach((el) => {
+    // Mega triggers and their parent items
+    megaNav.querySelectorAll(".mega-item").forEach((item) => {
+        // Determine module from data-panel attribute on the trigger
+        const trigger = item.querySelector(".mega-trigger");
+        if (!trigger)
+            return;
+        const panelName = trigger.getAttribute("data-panel");
+        const href = trigger.getAttribute("href")?.replace("#", "");
         let module = "";
-        // Determine the target module to evaluate
-        const route = el.getAttribute("data-route") || el.getAttribute("href")?.replace("#", "");
-        if (route) {
-            const parts = route.split("/");
-            if (parts[0] === "o2c")
+        if (panelName) {
+            if (panelName === "o2c")
                 module = "o2c";
-            else if (parts[0] === "p2p")
+            else if (panelName === "p2p")
                 module = "p2p";
-            else if (parts[0] === "inventory")
+            else if (panelName === "inventory")
                 module = "inventory";
-            else if (parts[0] === "accounting")
+            else if (panelName === "finance")
                 module = "accounting";
-            else if (parts[0] === "finance")
-                module = "finance";
-            else if (parts[0] === "reports")
-                module = "accounting";
-            else if (parts[0] === "settings")
+            else if (panelName === "settings")
                 module = "settings";
         }
-        else {
-            const trigger = el.querySelector(".accordion-trigger");
-            const span = el.querySelector("span") || (trigger && trigger.querySelector("span"));
-            if (span) {
-                const text = span.textContent.toLowerCase();
-                if (text.includes("sales") || text.includes("o2c"))
-                    module = "o2c";
-                else if (text.includes("purch") || text.includes("p2p"))
-                    module = "p2p";
-                else if (text.includes("invent") || text.includes("stock"))
-                    module = "inventory";
-                else if (text.includes("finance") || text.includes("gl") || text.includes("accounting"))
-                    module = "accounting";
-                else if (text.includes("reports") || text.includes("analyt"))
-                    module = "accounting";
-                else if (text.includes("setup") || text.includes("system") || text.includes("config"))
-                    module = "settings";
-            }
-        }
         if (module && !store.checkPermission(module, "read")) {
-            el.style.opacity = "0.35";
-            el.style.pointerEvents = "none";
-            el.style.cursor = "not-allowed";
-            if (el.classList.contains("accordion")) {
-                el.classList.remove("open");
-            }
+            item.style.opacity = "0.35";
+            item.style.pointerEvents = "none";
+            item.style.cursor = "not-allowed";
+            item.classList.remove("open");
         }
         else {
-            el.style.opacity = "";
-            el.style.pointerEvents = "";
-            el.style.cursor = "";
+            item.style.opacity = "";
+            item.style.pointerEvents = "";
+            item.style.cursor = "";
         }
     });
 }
-// Update Active Menu state based on hash route
+// Sync active/highlight state based on current hash
 function syncMegaMenuSelection(hash) {
-    const allLinks = sidebarNav.querySelectorAll("a");
-    allLinks.forEach(link => link.classList.remove("active"));
-    const singleItem = sidebarNav.querySelector(`.nav-item[data-tab="${hash}"]`);
-    if (singleItem) {
-        singleItem.classList.add("active");
-        document.querySelectorAll(".accordion").forEach(acc => acc.classList.remove("open"));
+    // Clear all active states
+    megaNav.querySelectorAll(".mega-trigger.active, .mega-link.active").forEach(el => el.classList.remove("active"));
+    // Check top-level triggers (dashboard is a direct link)
+    const dashTrigger = megaNav.querySelector(`.mega-trigger[data-route="dashboard"]`);
+    if (hash === "dashboard" && dashTrigger) {
+        dashTrigger.classList.add("active");
         return;
     }
-    const matchingSubItem = sidebarNav.querySelector(`.sub-item[data-route="${hash}"]`);
-    if (matchingSubItem) {
-        matchingSubItem.classList.add("active");
-        const parentAccordion = matchingSubItem.closest(".accordion");
-        if (parentAccordion) {
-            parentAccordion.classList.add("open");
+    // Check mega links for exact match
+    const matchingLink = megaNav.querySelector(`.mega-link[data-route="${hash}"]`);
+    if (matchingLink) {
+        matchingLink.classList.add("active");
+        // Also highlight the parent trigger
+        const parentItem = matchingLink.closest(".mega-item");
+        if (parentItem) {
+            const trigger = parentItem.querySelector(".mega-trigger");
+            if (trigger)
+                trigger.classList.add("active");
         }
         return;
     }
+    // Fallback: match on first segment (e.g., "o2c/sales-orders" -> highlight o2c panel trigger)
     const segments = hash.split("/");
-    if (segments.length >= 2) {
-        const fallbackRoute = `${segments[0]}/${segments[1]}`;
-        const fallbackSubItem = sidebarNav.querySelector(`.sub-item[data-route="${fallbackRoute}"]`);
-        if (fallbackSubItem) {
-            fallbackSubItem.classList.add("active");
-            const parentAccordion = fallbackSubItem.closest(".accordion");
-            if (parentAccordion) {
-                parentAccordion.classList.add("open");
-            }
-        }
+    if (segments.length >= 1) {
+        const panelTrigger = megaNav.querySelector(`.mega-trigger[data-panel="${segments[0]}"]`);
+        if (panelTrigger)
+            panelTrigger.classList.add("active");
     }
 }
+// =================================================================
+// LOGIN / LOGOUT
+// =================================================================
 function showLogin() {
     const overlay = document.getElementById("login-overlay");
     overlay.style.display = "flex";
     const app = document.querySelector(".app-container");
     if (app)
         app.style.display = "none";
-    const hdr = document.querySelector(".top-header");
-    if (hdr)
-        hdr.style.display = "none";
-    const sb = document.querySelector(".sidebar");
-    if (sb)
-        sb.style.display = "none";
 }
 function initLogin() {
     const form = document.getElementById("login-form");
@@ -170,30 +192,27 @@ function initLogin() {
             errEl.style.display = "block";
         }
     });
-    // Enter key on password field should submit
     document.getElementById("login-password").addEventListener("keydown", (e) => {
         if (e.key === "Enter")
             form.dispatchEvent(new Event("submit"));
     });
 }
-// Add logout to sidebar
-function addLogoutButton() {
-    const sidebar = document.querySelector(".sidebar");
-    if (!sidebar || document.getElementById("logout-btn"))
+// Logout button (already in header HTML, just wire it)
+function initLogoutButton() {
+    const btn = document.getElementById("logout-btn");
+    if (!btn)
         return;
-    const btn = document.createElement("button");
-    btn.id = "logout-btn";
-    btn.className = "btn btn-outline";
-    btn.style.cssText = "margin:12px;width:calc(100% - 24px);color:var(--color-danger);border-color:var(--color-danger);";
-    btn.innerHTML = '<span style="display:flex;align-items:center;gap:6px;">🚪 Logout</span>';
     btn.addEventListener("click", () => {
-        store.logout();
-        window.location.hash = "";
-        showLogin();
+        if (confirm("Are you sure you want to logout?")) {
+            store.logout();
+            window.location.hash = "";
+            showLogin();
+        }
     });
-    sidebar.appendChild(btn);
 }
-// Routing engine parsing nested path arrays: [module, page, action, id] with Security Guards
+// =================================================================
+// ROUTING ENGINE
+// =================================================================
 function router() {
     // Login gate
     if (!store.isLoggedIn()) {
@@ -275,7 +294,9 @@ function router() {
         window.location.hash = "#dashboard";
     }
 }
-// Header metrics sync
+// =================================================================
+// HEADER KPIs
+// =================================================================
 function updateHeaderKPIs() {
     const activeCompany = store.getActiveCompany();
     headerCompanyEl.textContent = activeCompany ? activeCompany.name : "No Company";
@@ -292,7 +313,9 @@ function updateHeaderKPIs() {
     }, 0);
     headerStockEl.textContent = `${totalStock.toLocaleString('en-US')} units`;
 }
-// Setup topbar user role switcher
+// =================================================================
+// USER ROLE SWITCHER
+// =================================================================
 function initUserSwitcher() {
     const switcher = document.getElementById("user-role-switcher");
     const avatar = document.getElementById("topbar-user-avatar");
@@ -310,13 +333,14 @@ function initUserSwitcher() {
         store.setCurrentUser(e.target.value);
         window.showToast(`User session switched to: ${store.getCurrentUser().name}`, "info");
         syncAvatar();
-        // Trigger layout filter & route guard refresh
         filterSidebarMenuItems();
         router();
         updateHeaderKPIs();
     });
 }
-// Global alert popup toast
+// =================================================================
+// TOAST NOTIFICATIONS
+// =================================================================
 window.showToast = function (message, type = "info") {
     const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
@@ -345,17 +369,23 @@ window.showToast = function (message, type = "info") {
         }, 200);
     }, 4000);
 };
-// Database Reset Event
-resetDbBtn.addEventListener("click", () => {
-    if (confirm("Reset the ERP database to initial values? All transactions, warehouses, companies, and settings will be restored to defaults.")) {
-        store.resetDatabase();
-        window.showToast("Database restored to default seeds.", "info");
-        setTimeout(() => {
-            window.location.reload();
-        }, 600);
-    }
-});
-// React to global state update events
+// =================================================================
+// DATABASE RESET
+// =================================================================
+if (resetDbBtn) {
+    resetDbBtn.addEventListener("click", () => {
+        if (confirm("Reset the ERP database to initial values? All transactions, warehouses, companies, and settings will be restored to defaults.")) {
+            store.resetDatabase();
+            window.showToast("Database restored to default seeds.", "info");
+            setTimeout(() => {
+                window.location.reload();
+            }, 600);
+        }
+    });
+}
+// =================================================================
+// STATE UPDATE LISTENER
+// =================================================================
 window.addEventListener("erp-state-updated", () => {
     updateHeaderKPIs();
     filterSidebarMenuItems();
@@ -364,9 +394,12 @@ window.addEventListener("erp-state-updated", () => {
         router();
     }
 });
-// Initialization
+// =================================================================
+// INITIALIZATION
+// =================================================================
 document.addEventListener("DOMContentLoaded", () => {
     initLogin();
+    initLogoutButton();
     // Auto-login for testing: add ?autologin=1 to URL
     if (window.location.search.includes("autologin=1")) {
         try {
@@ -378,7 +411,6 @@ document.addEventListener("DOMContentLoaded", () => {
     initUserSwitcher();
     filterSidebarMenuItems();
     updateHeaderKPIs();
-    addLogoutButton();
     window.addEventListener("hashchange", router);
     router();
     setTimeout(() => {
