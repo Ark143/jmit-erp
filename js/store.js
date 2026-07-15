@@ -295,11 +295,12 @@ class Store {
       const saved = localStorage.getItem("jmit_erp_state");
       if (saved) {
         this.state = JSON.parse(saved);
-        // Force upgrade to CRUD matrix definition on load
-        if (this.state.roles && this.state.roles[0] && !this.state.roles[0].permissions.o2c.create) {
+        // Force upgrade database structure to Phase 3 with CRUD mapping and user configs
+        if (!this.state.users || !this.state.settings.workflowRequirements) {
           this.state.users = JSON.parse(JSON.stringify(DEFAULT_STATE.users));
           this.state.roles = JSON.parse(JSON.stringify(DEFAULT_STATE.roles));
           this.state.currentUser = DEFAULT_STATE.currentUser;
+          this.state.settings.workflowRequirements = JSON.parse(JSON.stringify(DEFAULT_STATE.settings.workflowRequirements));
           this.saveState();
         }
       } else {
@@ -458,6 +459,21 @@ class Store {
     this.saveState();
   }
 
+  updateRolePermissions(roleId, permissions) {
+    if (!this.checkPermission("settings", "update")) throw new Error("Security Access Denied: Settings update privileges required!");
+    const role = this.state.roles.find(r => r.id === roleId);
+    if (role) {
+      role.permissions = permissions;
+      this.saveState();
+    }
+  }
+
+  updateWorkflowRequirements(reqs) {
+    if (!this.checkPermission("settings", "update")) throw new Error("Security Access Denied: Settings update privileges required!");
+    this.state.settings.workflowRequirements = reqs;
+    this.saveState();
+  }
+
   addCompany(company) {
     if (!this.checkPermission("settings", "create")) throw new Error("Security Access Denied: Settings create privileges required!");
     const id = "CMP" + String(this.state.settings.companies.length + 1).padStart(3, "0");
@@ -601,6 +617,7 @@ class Store {
     const withholding = parseFloat((subtotal * (cust ? cust.whtRate : 0.02)).toFixed(2));
     const total = parseFloat((subtotal + tax - withholding).toFixed(2));
 
+    const reqs = this.state.settings.workflowRequirements || {};
     const newSo = {
       id,
       companyId: this.state.settings.activeCompany,
@@ -614,7 +631,7 @@ class Store {
       tax,
       withholding,
       total,
-      status: "Draft"
+      status: (reqs.soApproval === false) ? "Approved" : "Draft"
     };
 
     this.state.salesOrders.push(newSo);
@@ -641,7 +658,11 @@ class Store {
     const id = "DN-2026-" + String(this.state.deliveries.length + 1).padStart(3, "0");
     const so = this.state.salesOrders.find(s => s.id === dnData.salesOrderId);
     if (!so) throw new Error("Reference Sales Order not found");
-    if (so.status !== "Approved") throw new Error("Sales Order must be Approved before shipping items");
+    
+    const reqs = this.state.settings.workflowRequirements || {};
+    if (reqs.soApproval !== false && so.status !== "Approved") {
+      throw new Error("Sales Order must be Approved before shipping items");
+    }
 
     const newDn = {
       id,
@@ -652,8 +673,25 @@ class Store {
       date,
       items: dnData.items.map(l => ({ itemId: l.itemId, sku: this.getItem(l.itemId).sku, qty: Number(l.qty), uom: l.uom })),
       warehouseId: dnData.warehouseId,
-      status: "Draft"
+      status: (reqs.dnSubmission === false) ? "Submitted" : "Draft"
     };
+
+    if (reqs.dnSubmission === false) {
+      // Deduct stock immediately
+      for (const line of newDn.items) {
+        const item = this.getItem(line.itemId);
+        if (!item) throw new Error("Item not found");
+        const currentStock = item.stocks[newDn.warehouseId] || 0;
+        if (currentStock < line.qty) {
+          throw new Error(`Insufficient stock in ${this.getWarehouse(newDn.warehouseId).name} for ${item.name}`);
+        }
+      }
+      newDn.items.forEach(line => {
+        const item = this.getItem(line.itemId);
+        item.stocks[newDn.warehouseId] -= line.qty;
+      });
+      so.status = "Delivered";
+    }
 
     this.state.deliveries.push(newDn);
     this.saveState();
@@ -703,6 +741,7 @@ class Store {
     const so = this.state.salesOrders.find(s => s.id === siData.salesOrderId);
     if (!so) throw new Error("Reference Sales Order not found");
 
+    const reqs = this.state.settings.workflowRequirements || {};
     const newSi = {
       id,
       salesOrderId: so.id,
@@ -716,8 +755,40 @@ class Store {
       tax: so.tax,
       withholding: so.withholding,
       total: so.total,
-      status: "Draft"
+      status: (reqs.siSubmission === false) ? "Unpaid" : "Draft"
     };
+
+    if (reqs.siSubmission === false) {
+      const maps = this.state.settings.glMappings;
+      const baseTotal = this.convertToBase(newSi.total, so.currency);
+      const baseSubtotal = this.convertToBase(newSi.subtotal, so.currency);
+      const baseTax = this.convertToBase(newSi.tax, so.currency);
+      const baseWht = this.convertToBase(newSi.withholding, so.currency);
+
+      let totalCogs = 0;
+      newSi.items.forEach(line => {
+        const prod = this.getItem(line.itemId);
+        totalCogs += prod.cost * line.qty;
+      });
+
+      const jeId = "JE-2026-" + String(this.state.journalEntries.length + 1).padStart(4, "0");
+      this.postJournalEntry({
+        id: jeId,
+        date: newSi.date,
+        reference: `Invoice ${newSi.id} (SO: ${so.id})`,
+        lines: [
+          { code: maps.arAccount, debit: baseTotal, credit: 0 },
+          { code: maps.whtAssetAccount, debit: baseWht, credit: 0 },
+          { code: maps.salesAccount, debit: 0, credit: baseSubtotal },
+          { code: maps.taxAccount, debit: 0, credit: baseTax },
+          { code: maps.cogsAccount, debit: totalCogs, credit: 0 },
+          { code: maps.inventoryAccount, debit: 0, credit: totalCogs }
+        ],
+        status: "Posted"
+      });
+
+      so.status = "Closed";
+    }
 
     this.state.salesInvoices.push(newSi);
     this.saveState();
@@ -858,6 +929,7 @@ class Store {
       };
     });
 
+    const reqs = this.state.settings.workflowRequirements || {};
     const newPo = {
       id,
       companyId: this.state.settings.activeCompany,
@@ -868,7 +940,7 @@ class Store {
       currency: poData.currency || "USD",
       rate: Number(poData.rate) || 1.0,
       total,
-      status: "Draft"
+      status: (reqs.poApproval === false) ? "Approved" : "Draft"
     };
 
     this.state.purchaseOrders.push(newPo);
@@ -895,7 +967,11 @@ class Store {
     const id = "GRN-2026-" + String(this.state.goodsReceipts.length + 1).padStart(3, "0");
     const po = this.state.purchaseOrders.find(p => p.id === grnData.purchaseOrderId);
     if (!po) throw new Error("Reference PO not found");
-    if (po.status !== "Approved") throw new Error("Purchase Order must be Approved before receiving goods");
+    
+    const reqs = this.state.settings.workflowRequirements || {};
+    if (reqs.poApproval !== false && po.status !== "Approved") {
+      throw new Error("Purchase Order must be Approved before receiving goods");
+    }
 
     const newGrn = {
       id,
@@ -906,8 +982,19 @@ class Store {
       date,
       items: grnData.items,
       warehouseId: grnData.warehouseId,
-      status: "Draft"
+      status: (reqs.grnSubmission === false) ? "Submitted" : "Draft"
     };
+
+    if (reqs.grnSubmission === false) {
+      newGrn.items.forEach(line => {
+        const item = this.getItem(line.itemId);
+        if (item) {
+          if (!item.stocks[newGrn.warehouseId]) item.stocks[newGrn.warehouseId] = 0;
+          item.stocks[newGrn.warehouseId] += line.acceptedQty;
+        }
+      });
+      po.status = "Received";
+    }
 
     this.state.goodsReceipts.push(newGrn);
     this.saveState();
@@ -949,6 +1036,7 @@ class Store {
     const po = this.state.purchaseOrders.find(p => p.id === piData.purchaseOrderId);
     if (!po) throw new Error("Reference PO not found");
 
+    const reqs = this.state.settings.workflowRequirements || {};
     const newPi = {
       id,
       purchaseOrderId: po.id,
@@ -959,8 +1047,48 @@ class Store {
       date,
       items: po.items,
       total: po.total,
-      status: "Draft"
+      status: (reqs.piSubmission === false) ? "Unpaid" : "Draft"
     };
+
+    if (reqs.piSubmission === false) {
+      const grn = this.state.goodsReceipts.find(g => g.purchaseOrderId === po.id);
+      if (!grn) throw new Error("No warehouse Goods Receipt found for this PO");
+
+      const maps = this.state.settings.glMappings;
+      const baseTotal = this.convertToBase(po.total, po.currency);
+
+      let acceptedCost = 0;
+      let rejectedCost = 0;
+      grn.items.forEach(line => {
+        const item = this.getItem(line.itemId);
+        const cost = item ? item.cost : 0;
+        acceptedCost += cost * line.acceptedQty;
+        rejectedCost += cost * line.rejectedQty;
+      });
+
+      const baseAccepted = this.convertToBase(acceptedCost, po.currency);
+      const baseRejected = this.convertToBase(rejectedCost, po.currency);
+
+      const jeId = "JE-2026-" + String(this.state.journalEntries.length + 1).padStart(4, "0");
+      const jeLines = [
+        { code: maps.inventoryAccount, debit: baseAccepted, credit: 0 },
+        { code: maps.apAccount, debit: 0, credit: baseTotal }
+      ];
+
+      if (baseRejected > 0) {
+        jeLines.push({ code: maps.opexAccount, debit: baseRejected, credit: 0 });
+      }
+
+      this.postJournalEntry({
+        id: jeId,
+        date: newPi.date,
+        reference: `Purchase Invoice ${newPi.id} (PO: ${po.id})`,
+        lines: jeLines,
+        status: "Posted"
+      });
+
+      po.status = "Billed";
+    }
 
     this.state.purchaseInvoices.push(newPi);
     this.saveState();
@@ -1086,6 +1214,7 @@ class Store {
 
     const id = "PAY-2026-" + String(this.state.payments.length + 1).padStart(3, "0");
 
+    const reqs = this.state.settings.workflowRequirements || {};
     const newPay = {
       id,
       type: payData.type,
@@ -1098,8 +1227,43 @@ class Store {
       amount: payData.amount,
       currency: payData.currency || "USD",
       rate: Number(payData.rate) || 1.0,
-      status: "Draft"
+      status: (reqs.paymentSubmission === false) ? "Posted" : "Draft"
     };
+
+    if (reqs.paymentSubmission === false) {
+      const maps = this.state.settings.glMappings;
+      const baseAmt = this.convertToBase(payData.amount, payData.currency);
+      const jeId = "JE-2026-" + String(this.state.journalEntries.length + 1).padStart(4, "0");
+      let jeLines = [];
+
+      if (payData.type === "Receive") {
+        jeLines = [
+          { code: maps.cashAccount, debit: baseAmt, credit: 0 },
+          { code: maps.arAccount, debit: 0, credit: baseAmt }
+        ];
+        if (payData.referenceInvoiceId) {
+          const inv = this.state.salesInvoices.find(s => s.id === payData.referenceInvoiceId);
+          if (inv) inv.status = "Paid";
+        }
+      } else {
+        jeLines = [
+          { code: maps.apAccount, debit: baseAmt, credit: 0 },
+          { code: maps.cashAccount, debit: 0, credit: baseAmt }
+        ];
+        if (payData.referenceInvoiceId) {
+          const inv = this.state.purchaseInvoices.find(p => p.id === payData.referenceInvoiceId);
+          if (inv) inv.status = "Paid";
+        }
+      }
+
+      this.postJournalEntry({
+        id: jeId,
+        date: newPay.date,
+        reference: `Payment ${newPay.id} (${newPay.reference})`,
+        lines: jeLines,
+        status: "Posted"
+      });
+    }
 
     this.state.payments.push(newPay);
     this.saveState();
@@ -1160,6 +1324,7 @@ class Store {
 
     const id = "SE-2026-" + String(this.state.stockEntries.length + 1).padStart(3, "0");
 
+    const reqs = this.state.settings.workflowRequirements || {};
     const newSe = {
       id,
       type: seData.type,
@@ -1173,6 +1338,18 @@ class Store {
 
     this.state.stockEntries.push(newSe);
     this.saveState();
+
+    if (reqs.journalSubmission === false) {
+      // Auto submit stock entry directly
+      try {
+        this.submitStockEntry(id);
+      } catch (e) {
+        // Fallback or bubble
+        this.state.stockEntries.pop();
+        throw e;
+      }
+    }
+
     return newSe;
   }
 
@@ -1325,14 +1502,41 @@ class Store {
     if (this.isPeriodClosed(date)) throw new Error("Posting date falls within a closed fiscal period!");
 
     const jeId = "JE-2026-" + String(this.state.journalEntries.length + 1).padStart(4, "0");
+    const reqs = this.state.settings.workflowRequirements || {};
+    
     const newJe = {
       id: jeId,
       date,
       reference: ref,
       lines,
       companyId: this.state.settings.activeCompany,
-      status: "Draft"
+      status: (reqs.journalSubmission === false) ? "Posted" : "Draft"
     };
+
+    if (reqs.journalSubmission === false) {
+      let totalDebit = 0;
+      let totalCredit = 0;
+      lines.forEach(l => {
+        totalDebit += Number(l.debit) || 0;
+        totalCredit += Number(l.credit) || 0;
+      });
+
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        throw new Error(`Unbalanced Entry: Debits ($${totalDebit.toFixed(2)}) must equal Credits ($${totalCredit.toFixed(2)})`);
+      }
+
+      lines.forEach(l => {
+        const acct = this.getAccount(l.code);
+        if (acct) {
+          if (acct.type === "Asset" || acct.type === "Expense") {
+            acct.balance = parseFloat((acct.balance + l.debit - l.credit).toFixed(2));
+          } else {
+            acct.balance = parseFloat((acct.balance - l.debit + l.credit).toFixed(2));
+          }
+        }
+      });
+      this.updateRetainedEarnings();
+    }
 
     this.state.journalEntries.push(newJe);
     this.saveState();

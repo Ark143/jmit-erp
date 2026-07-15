@@ -14,6 +14,9 @@ export function renderSettings(container, pathParts) {
         <button class="settings-tab-btn ${subRoute === 'partners' ? 'active' : ''}" onclick="window.location.hash='#settings/partners'">
           👥 Business Partners Registry
         </button>
+        <button class="settings-tab-btn ${subRoute === 'workflows' ? 'active' : ''}" onclick="window.location.hash='#settings/workflows'">
+          🛡️ Workflows & Roles Clearance
+        </button>
       </div>
 
       <div id="settings-content-viewport"></div>
@@ -28,6 +31,8 @@ export function renderSettings(container, pathParts) {
     renderConfig(contentViewport);
   } else if (subRoute === "partners") {
     renderPartners(contentViewport);
+  } else if (subRoute === "workflows") {
+    renderWorkflowsAndRoles(contentViewport);
   }
 }
 
@@ -532,5 +537,185 @@ function renderPartners(container) {
       close();
       renderPartners(container);
     });
+  });
+}
+
+function renderWorkflowsAndRoles(container) {
+  const settings = store.getSettings();
+  const reqs = settings.workflowRequirements || {};
+  const roles = store.getRoles();
+
+  container.innerHTML = `
+    <div class="grid-main-side animate-fade-in">
+      <!-- Workflow Configurations Switches -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Document Approval Workflow Rules</h3>
+        </div>
+        <form id="workflow-reqs-form">
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="form-group-checkbox" style="display:flex; align-items:center; gap: 10px;">
+              <input type="checkbox" id="wf-soApproval" ${reqs.soApproval ? 'checked' : ''} />
+              <label class="form-label" style="margin: 0; cursor: pointer; font-size:0.85rem;" for="wf-soApproval">Require Sales Order Approval (Draft ➔ Approved)</label>
+            </div>
+            <div class="form-group-checkbox" style="display:flex; align-items:center; gap: 10px;">
+              <input type="checkbox" id="wf-dnSubmission" ${reqs.dnSubmission ? 'checked' : ''} />
+              <label class="form-label" style="margin: 0; cursor: pointer; font-size:0.85rem;" for="wf-dnSubmission">Require Delivery Note Submission (Only submitted DNs deduct stock)</label>
+            </div>
+            <div class="form-group-checkbox" style="display:flex; align-items:center; gap: 10px;">
+              <input type="checkbox" id="wf-siSubmission" ${reqs.siSubmission ? 'checked' : ''} />
+              <label class="form-label" style="margin: 0; cursor: pointer; font-size:0.85rem;" for="wf-siSubmission">Require Sales Invoice Submission (Only submitted SIs post GL entries)</label>
+            </div>
+            <div class="form-group-checkbox" style="display:flex; align-items:center; gap: 10px;">
+              <input type="checkbox" id="wf-poApproval" ${reqs.poApproval ? 'checked' : ''} />
+              <label class="form-label" style="margin: 0; cursor: pointer; font-size:0.85rem;" for="wf-poApproval">Require Purchase Order Approval (Draft ➔ Approved)</label>
+            </div>
+            <div class="form-group-checkbox" style="display:flex; align-items:center; gap: 10px;">
+              <input type="checkbox" id="wf-grnSubmission" ${reqs.grnSubmission ? 'checked' : ''} />
+              <label class="form-label" style="margin: 0; cursor: pointer; font-size:0.85rem;" for="wf-grnSubmission">Require Goods Receipt Note Submission (Only submitted GRNs add stock)</label>
+            </div>
+            <div class="form-group-checkbox" style="display:flex; align-items:center; gap: 10px;">
+              <input type="checkbox" id="wf-piSubmission" ${reqs.piSubmission ? 'checked' : ''} />
+              <label class="form-label" style="margin: 0; cursor: pointer; font-size:0.85rem;" for="wf-piSubmission">Require Purchase Invoice Submission (Only submitted PIs post GL entries)</label>
+            </div>
+            <div class="form-group-checkbox" style="display:flex; align-items:center; gap: 10px;">
+              <input type="checkbox" id="wf-paymentSubmission" ${reqs.paymentSubmission ? 'checked' : ''} />
+              <label class="form-label" style="margin: 0; cursor: pointer; font-size:0.85rem;" for="wf-paymentSubmission">Require Treasury Payment Posting (Only posted payments change cash balances)</label>
+            </div>
+            <div class="form-group-checkbox" style="display:flex; align-items:center; gap: 10px;">
+              <input type="checkbox" id="wf-journalSubmission" ${reqs.journalSubmission ? 'checked' : ''} />
+              <label class="form-label" style="margin: 0; cursor: pointer; font-size:0.85rem;" for="wf-journalSubmission">Require Manual Journal Posting (Only posted journals mutate ledger)</label>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 20px;">Save Workflow Rules</button>
+        </form>
+      </div>
+
+      <!-- Role Profile Permissions Configurator -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Role Permissions Configuration Matrix</h3>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Select Role to Customize</label>
+          <select id="role-select" class="form-control">
+            ${roles.map(r => `<option value="${r.id}">${r.name}</option>`).join("")}
+          </select>
+        </div>
+
+        <form id="role-permissions-form" style="margin-top: 20px;">
+          <div class="table-container" style="margin-bottom: 20px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Module</th>
+                  <th style="text-align:center;">Read</th>
+                  <th style="text-align:center;">Create</th>
+                  <th style="text-align:center;">Update</th>
+                  <th style="text-align:center;">Delete</th>
+                  <th style="text-align:center;">Approve</th>
+                </tr>
+              </thead>
+              <tbody id="permissions-matrix-body">
+                <!-- Dynamically loaded inputs -->
+              </tbody>
+            </table>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm btn-block">Save Role Permissions Matrix</button>
+        </form>
+      </div>
+    </div>
+  `;
+
+  const roleSelect = container.querySelector("#role-select");
+  const matrixBody = container.querySelector("#permissions-matrix-body");
+  
+  const modulesList = [
+    { key: "o2c", name: "Sales & O2C Operations" },
+    { key: "p2p", name: "Procurement & P2P Engine" },
+    { key: "inventory", name: "Inventory & Stock" },
+    { key: "accounting", name: "Finance & GL" },
+    { key: "finance", name: "Treasury Payments / Fixed Assets" },
+    { key: "settings", name: "Setup & System Configuration" }
+  ];
+
+  const loadRolePermissions = (roleId) => {
+    const role = roles.find(r => r.id === roleId);
+    if (!role) return;
+
+    matrixBody.innerHTML = modulesList.map(m => {
+      const p = role.permissions[m.key] || { read: false, create: false, update: false, delete: false, approve: false };
+      return `
+        <tr>
+          <td><strong>${m.name}</strong></td>
+          <td style="text-align:center;"><input type="checkbox" class="perm-chk" data-mod="${m.key}" data-act="read" ${p.read ? 'checked' : ''} /></td>
+          <td style="text-align:center;"><input type="checkbox" class="perm-chk" data-mod="${m.key}" data-act="create" ${p.create ? 'checked' : ''} /></td>
+          <td style="text-align:center;"><input type="checkbox" class="perm-chk" data-mod="${m.key}" data-act="update" ${p.update ? 'checked' : ''} /></td>
+          <td style="text-align:center;"><input type="checkbox" class="perm-chk" data-mod="${m.key}" data-act="delete" ${p.delete ? 'checked' : ''} /></td>
+          <td style="text-align:center;"><input type="checkbox" class="perm-chk" data-mod="${m.key}" data-act="approve" ${p.approve ? 'checked' : ''} /></td>
+        </tr>
+      `;
+    }).join("");
+  };
+
+  roleSelect.addEventListener("change", (e) => loadRolePermissions(e.target.value));
+
+  // Init
+  loadRolePermissions(roleSelect.value);
+
+  // Bind Workflow requirements submit
+  container.querySelector("#workflow-reqs-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const reqsObj = {
+      soApproval: e.target.querySelector("#wf-soApproval").checked,
+      dnSubmission: e.target.querySelector("#wf-dnSubmission").checked,
+      siSubmission: e.target.querySelector("#wf-siSubmission").checked,
+      poApproval: e.target.querySelector("#wf-poApproval").checked,
+      grnSubmission: e.target.querySelector("#wf-grnSubmission").checked,
+      piSubmission: e.target.querySelector("#wf-piSubmission").checked,
+      paymentSubmission: e.target.querySelector("#wf-paymentSubmission").checked,
+      journalSubmission: e.target.querySelector("#wf-journalSubmission").checked
+    };
+
+    try {
+      store.updateWorkflowRequirements(reqsObj);
+      window.showToast("Global document workflow approval rules updated successfully.", "success");
+    } catch(err) {
+      window.showToast(err.message, "danger");
+    }
+  });
+
+  // Bind Permissions Matrix submit
+  container.querySelector("#role-permissions-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const roleId = roleSelect.value;
+    const permissions = {};
+
+    modulesList.forEach(m => {
+      permissions[m.key] = {
+        read: false,
+        create: false,
+        update: false,
+        delete: false,
+        approve: false
+      };
+    });
+
+    e.target.querySelectorAll(".perm-chk").forEach(chk => {
+      const mod = chk.getAttribute("data-mod");
+      const act = chk.getAttribute("data-act");
+      permissions[mod][act] = chk.checked;
+    });
+
+    try {
+      store.updateRolePermissions(roleId, permissions);
+      window.showToast(`Permissions matrix for "${roles.find(r => r.id === roleId).name}" updated successfully.`, "success");
+      
+      // Update sidebar Mega Menu in case active role permissions changed
+      window.dispatchEvent(new CustomEvent("erp-state-updated"));
+    } catch(err) {
+      window.showToast(err.message, "danger");
+    }
   });
 }

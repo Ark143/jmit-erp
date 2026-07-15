@@ -1,4 +1,4 @@
-// JMIT ERP - Application Orchestrator & Multi-Page Router (Phase 2)
+// JMIT ERP - Application Orchestrator, Multi-Page Router & Security Guard (Phase 3)
 import { store } from "./store.js";
 import { renderDashboard } from "./views/dashboard.js";
 import { renderO2C } from "./views/o2c.js";
@@ -39,6 +39,9 @@ function initMegaMenuUI() {
     const trigger = acc.querySelector(".accordion-trigger");
     trigger.addEventListener("click", (e) => {
       e.preventDefault();
+      // Only toggle if not disabled by RBAC
+      if (acc.style.pointerEvents === "none") return;
+      
       const isOpen = acc.classList.contains("open");
       
       // Close other accordions
@@ -51,26 +54,68 @@ function initMegaMenuUI() {
   });
 }
 
+// Visually dim and disable unauthorized sidebar options
+function filterSidebarMenuItems() {
+  const items = document.querySelectorAll(".sidebar-nav a, .sidebar-nav button.accordion-trigger, .sidebar-nav .menu-section");
+  items.forEach(el => {
+    let module = "";
+    
+    // Determine the target module to evaluate
+    const route = el.getAttribute("data-route") || el.getAttribute("href")?.replace("#", "");
+    
+    if (route) {
+      const parts = route.split("/");
+      if (parts[0] === "o2c") module = "o2c";
+      else if (parts[0] === "p2p") module = "p2p";
+      else if (parts[0] === "inventory") module = "inventory";
+      else if (parts[0] === "accounting") module = "accounting";
+      else if (parts[0] === "finance") module = "finance";
+      else if (parts[0] === "reports") module = "accounting";
+      else if (parts[0] === "settings") module = "settings";
+    } else {
+      const trigger = el.querySelector(".accordion-trigger");
+      const span = el.querySelector("span") || (trigger && trigger.querySelector("span"));
+      if (span) {
+        const text = span.textContent.toLowerCase();
+        if (text.includes("sales") || text.includes("o2c")) module = "o2c";
+        else if (text.includes("purch") || text.includes("p2p")) module = "p2p";
+        else if (text.includes("invent") || text.includes("stock")) module = "inventory";
+        else if (text.includes("finance") || text.includes("gl") || text.includes("accounting")) module = "accounting";
+        else if (text.includes("reports") || text.includes("analyt")) module = "accounting";
+        else if (text.includes("setup") || text.includes("system") || text.includes("config")) module = "settings";
+      }
+    }
+
+    if (module && !store.checkPermission(module, "read")) {
+      el.style.opacity = "0.35";
+      el.style.pointerEvents = "none";
+      el.style.cursor = "not-allowed";
+      if (el.classList.contains("accordion")) {
+        el.classList.remove("open");
+      }
+    } else {
+      el.style.opacity = "";
+      el.style.pointerEvents = "";
+      el.style.cursor = "";
+    }
+  });
+}
+
 // Update Active Menu state based on hash route
 function syncMegaMenuSelection(hash) {
-  // Reset all active classes
   const allLinks = sidebarNav.querySelectorAll("a");
   allLinks.forEach(link => link.classList.remove("active"));
 
-  // Check if it's a single item (like Dashboard)
   const singleItem = sidebarNav.querySelector(`.nav-item[data-tab="${hash}"]`);
   if (singleItem) {
     singleItem.classList.add("active");
-    // Close all accordions
     document.querySelectorAll(".accordion").forEach(acc => acc.classList.remove("open"));
     return;
   }
 
-  // Find matching sub-item by sub-route matching
   const matchingSubItem = sidebarNav.querySelector(`.sub-item[data-route="${hash}"]`);
   if (matchingSubItem) {
     matchingSubItem.classList.add("active");
-    // Open parent accordion container
     const parentAccordion = matchingSubItem.closest(".accordion");
     if (parentAccordion) {
       parentAccordion.classList.add("open");
@@ -78,7 +123,6 @@ function syncMegaMenuSelection(hash) {
     return;
   }
 
-  // Fallback: match by prefix (e.g. o2c/sales-orders/new should highlight o2c/sales-orders)
   const segments = hash.split("/");
   if (segments.length >= 2) {
     const fallbackRoute = `${segments[0]}/${segments[1]}`;
@@ -93,7 +137,7 @@ function syncMegaMenuSelection(hash) {
   }
 }
 
-// Routing engine parsing nested path arrays: [module, page, action, id]
+// Routing engine parsing nested path arrays: [module, page, action, id] with Security Guards
 function router() {
   const hash = window.location.hash.replace("#", "") || "dashboard";
   const pathParts = hash.split("/");
@@ -101,26 +145,52 @@ function router() {
 
   syncMegaMenuSelection(hash);
 
+  // Security Clearance Check
+  let permissionModule = null;
+  if (primaryModule === "o2c") permissionModule = "o2c";
+  else if (primaryModule === "p2p") permissionModule = "p2p";
+  else if (primaryModule === "inventory") permissionModule = "inventory";
+  else if (primaryModule === "accounting") permissionModule = "accounting";
+  else if (primaryModule === "finance") permissionModule = "finance";
+  else if (primaryModule === "reports") permissionModule = "accounting";
+  else if (primaryModule === "settings") permissionModule = "settings";
+
+  if (permissionModule && !store.checkPermission(permissionModule, "read")) {
+    appViewport.innerHTML = `
+      <div style="padding: 60px 40px; text-align: center; max-width: 580px; margin: 40px auto; background-color: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--color-danger); box-shadow: var(--shadow-lg);" class="animate-fade-in">
+        <div style="font-size: 3rem; margin-bottom: 20px;">🛡️</div>
+        <h3 style="color: var(--color-danger); font-size: 1.4rem; margin-bottom: 12px; font-weight:700;">Security Access Restricted</h3>
+        <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 16px;">
+          Your current active profile (<strong>${store.getCurrentRole().name}</strong>) does not have read permissions to access the <strong>${primaryModule.toUpperCase()}</strong> module.
+        </p>
+        <p class="text-muted" style="font-size: 0.8rem; border-top: 1px solid var(--border-color); padding-top:14px;">
+          Clearance Level: <strong>READ</strong> required. Switch your user profile in the top nav dropdown switcher to gain access.
+        </p>
+        <button onclick="window.location.hash='#dashboard'" class="btn btn-outline" style="margin-top: 24px; border-color: var(--color-danger); color: var(--color-danger);">Return to Dashboard</button>
+      </div>
+    `;
+    pageTitleEl.textContent = "Security clearance restricted";
+    return;
+  }
+
   if (MODULES[primaryModule]) {
     try {
-      // Set title context
       let title = primaryModule.toUpperCase();
-      if (primaryModule === "o2c") title = "Sales (O2C) Management";
-      else if (primaryModule === "p2p") title = "Purchasing (P2P) Management";
-      else if (primaryModule === "inventory") title = "Warehouse & Inventory";
-      else if (primaryModule === "accounting") title = "Finance & General Ledger";
-      else if (primaryModule === "reports") title = "Financial Reporting Center";
-      else if (primaryModule === "settings") title = "ERP Configuration Panel";
+      if (primaryModule === "o2c") title = "Sales & O2C Operations";
+      else if (primaryModule === "p2p") title = "Procurement & P2P Engine";
+      else if (primaryModule === "inventory") title = "Inventory & Stock Warehouses";
+      else if (primaryModule === "accounting") title = "Accounting & Double-Entry Ledger";
+      else if (primaryModule === "finance") title = "Treasury Cash & Fixed Assets";
+      else if (primaryModule === "reports") title = "Financial Analysis & Reports";
+      else if (primaryModule === "settings") title = "ERP Mappings & Role Settings";
       else if (primaryModule === "dashboard") title = "Executive ERP Dashboard";
       
       pageTitleEl.textContent = title;
-
-      // Render view, passing the parsed nested path variables
       MODULES[primaryModule](appViewport, pathParts);
     } catch (err) {
       appViewport.innerHTML = `
         <div style="padding: 40px; text-align: center; color: var(--color-danger);">
-          <h3>Failed to Load Route View</h3>
+          <h3>Failed to load dynamic view</h3>
           <p>${err.message}</p>
           <button onclick="window.location.hash='#dashboard'" class="btn btn-outline" style="margin-top: 14px;">Return Home</button>
         </div>
@@ -139,7 +209,6 @@ function updateHeaderKPIs() {
   const cashAcct = store.getAccount(store.getSettings().glMappings.cashAccount);
   const cashVal = cashAcct ? cashAcct.balance : 0;
   
-  // Dynamic header currency display
   const currencySymbol = activeCompany && activeCompany.currency === "PHP" ? "₱" : "$";
   const displayCash = activeCompany && activeCompany.currency === "PHP" 
     ? (cashVal * store.getSettings().exchangeRates.PHP) 
@@ -152,6 +221,35 @@ function updateHeaderKPIs() {
     return sum + warehouseStocks.reduce((s, qty) => s + qty, 0);
   }, 0);
   headerStockEl.textContent = `${totalStock.toLocaleString('en-US')} units`;
+}
+
+// Setup topbar user role switcher
+function initUserSwitcher() {
+  const switcher = document.getElementById("user-role-switcher");
+  const avatar = document.getElementById("topbar-user-avatar");
+
+  if (!switcher) return;
+
+  switcher.value = store.state.currentUser;
+
+  const syncAvatar = () => {
+    const user = store.getCurrentUser();
+    if (avatar) {
+      avatar.textContent = user.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
+    }
+  };
+  syncAvatar();
+
+  switcher.addEventListener("change", (e) => {
+    store.setCurrentUser(e.target.value);
+    window.showToast(`User session switched to: ${store.getCurrentUser().name}`, "info");
+    syncAvatar();
+    
+    // Trigger layout filter & route guard refresh
+    filterSidebarMenuItems();
+    router();
+    updateHeaderKPIs();
+  });
 }
 
 // Global alert popup toast
@@ -199,7 +297,7 @@ resetDbBtn.addEventListener("click", () => {
 // React to global state update events
 window.addEventListener("erp-state-updated", () => {
   updateHeaderKPIs();
-  // Safe routing updates if no overlay modals are active
+  filterSidebarMenuItems();
   const activeOverlay = document.querySelector(".modal-overlay");
   if (!activeOverlay) {
     router();
@@ -209,14 +307,15 @@ window.addEventListener("erp-state-updated", () => {
 // Initialization
 document.addEventListener("DOMContentLoaded", () => {
   initMegaMenuUI();
+  initUserSwitcher();
+  filterSidebarMenuItems();
   updateHeaderKPIs();
   
-  // Start router
   window.addEventListener("hashchange", router);
   router();
   
   setTimeout(() => {
-    window.showToast("JMIT ERP system initialized. Mega Menu & full-page document chains ready.", "success");
-  }, 3000); // Wait after app loads
+    window.showToast("JMIT ERP system initialized. Permissions guards active.", "success");
+  }, 3000);
 });
 export { router };

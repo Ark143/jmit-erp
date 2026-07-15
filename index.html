@@ -163,11 +163,16 @@
             </div>
           </div>
           
-          <div class="user-profile">
-            <div class="profile-avatar">AD</div>
-            <div class="profile-info">
-              <span class="profile-name">Admin User</span>
-              <span class="profile-role">JMIT Controller</span>
+          <div class="user-profile" style="display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.03); padding: 4px 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <div class="profile-avatar" id="topbar-user-avatar" style="width: 32px; height: 32px; font-weight: 700; background: var(--color-primary); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">AD</div>
+            <div class="profile-info" style="margin-right: 6px;">
+              <select id="user-role-switcher" class="form-control" style="background: transparent; border: none; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); padding: 2px 2px; cursor: pointer; min-width: 140px; margin: 0; outline: none;">
+                <option value="usr_admin" style="background-color: var(--card-bg); color: var(--text-primary);">System Admin</option>
+                <option value="usr_sales" style="background-color: var(--card-bg); color: var(--text-primary);">Sales Manager</option>
+                <option value="usr_purch" style="background-color: var(--card-bg); color: var(--text-primary);">Purchase Manager</option>
+                <option value="usr_inventory" style="background-color: var(--card-bg); color: var(--text-primary);">Inventory Clerk</option>
+                <option value="usr_accountant" style="background-color: var(--card-bg); color: var(--text-primary);">Chief Accountant</option>
+              </select>
             </div>
           </div>
         </div>

@@ -17,12 +17,16 @@ export function renderO2C(container, pathParts) {
   } else if (subPage === "deliveries") {
     if (action === "new") {
       renderDeliveryForm(container);
+    } else if (action === "view" && paramId) {
+      renderDeliveryDetails(container, paramId);
     } else {
       renderDeliveriesList(container);
     }
   } else if (subPage === "invoices") {
     if (action === "new") {
       renderInvoiceForm(container);
+    } else if (action === "view" && paramId) {
+      renderInvoiceDetails(container, paramId);
     } else {
       renderInvoicesList(container);
     }
@@ -313,9 +317,14 @@ function renderSalesOrderDetails(container, orderId) {
     return;
   }
 
-  // Check if we can proceed to Delivery or Invoice
-  const showDeliveryBtn = so.status === "Approved";
-  const showInvoiceBtn = so.status === "Delivered";
+  const isDraft = so.status === "Draft";
+  const canApprove = store.checkPermission("o2c", "approve");
+  const canDelete = store.checkPermission("o2c", "delete");
+
+  // Show Delivery and Invoice triggers only if user has write/create permission
+  const hasWritePermission = store.checkPermission("o2c", "create");
+  const showDeliveryBtn = so.status === "Approved" && hasWritePermission;
+  const showInvoiceBtn = so.status === "Delivered" && hasWritePermission;
 
   container.innerHTML = `
     <div class="card animate-fade-in">
@@ -326,6 +335,8 @@ function renderSalesOrderDetails(container, orderId) {
         </div>
         <div style="display: flex; gap: 10px;">
           <button onclick="window.location.hash='#o2c/sales-orders'" class="btn btn-outline btn-sm">Back</button>
+          ${isDraft && canApprove ? `<button id="approve-so-btn" class="btn btn-primary btn-sm">Approve Sales Order</button>` : ''}
+          ${isDraft && canDelete ? `<button id="delete-so-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
           ${showDeliveryBtn ? `<button id="proceed-delivery-btn" class="btn btn-primary btn-sm">Ship Stock (Delivery Note)</button>` : ''}
           ${showInvoiceBtn ? `<button id="proceed-invoice-btn" class="btn btn-success btn-sm">Generate Sales Invoice</button>` : ''}
         </div>
@@ -348,7 +359,7 @@ function renderSalesOrderDetails(container, orderId) {
           </div>
           <div style="display: flex; justify-content: space-between;">
             <span class="text-secondary">Status:</span>
-            <span class="badge badge-pending">${so.status}</span>
+            <span class="badge ${so.status === 'Closed' ? 'badge-success' : so.status === 'Approved' ? 'badge-pending' : so.status === 'Draft' ? 'badge-draft' : 'badge-danger'}">${so.status}</span>
           </div>
         </div>
       </div>
@@ -403,6 +414,30 @@ function renderSalesOrderDetails(container, orderId) {
   `;
 
   // Action listeners
+  if (isDraft && canApprove) {
+    container.querySelector("#approve-so-btn").addEventListener("click", () => {
+      try {
+        store.approveSalesOrder(so.id);
+        window.showToast(`Sales Order ${so.id} approved successfully.`, "success");
+        renderSalesOrderDetails(container, orderId);
+      } catch (err) {
+        window.showToast(err.message, "danger");
+      }
+    });
+  }
+  if (isDraft && canDelete) {
+    container.querySelector("#delete-so-btn").addEventListener("click", () => {
+      if (confirm("Permanently delete this draft Sales Order?")) {
+        try {
+          store.deleteDocument("o2c", "salesOrders", so.id);
+          window.showToast("Draft Sales Order deleted.", "warning");
+          window.location.hash = "#o2c/sales-orders";
+        } catch (err) {
+          window.showToast(err.message, "danger");
+        }
+      }
+    });
+  }
   if (showDeliveryBtn) {
     container.querySelector("#proceed-delivery-btn").addEventListener("click", () => {
       window.location.hash = `#o2c/deliveries/new?so=${so.id}`;
@@ -437,6 +472,7 @@ function renderDeliveriesList(container) {
               <th>Date</th>
               <th>Items Shipped</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -448,7 +484,10 @@ function renderDeliveriesList(container) {
                 <td>${store.getWarehouse(dn.warehouseId).name}</td>
                 <td>${dn.date}</td>
                 <td>${dn.items.map(i => `${i.qty} x ${i.sku}`).join(", ")}</td>
-                <td><span class="badge badge-success">${dn.status}</span></td>
+                <td><span class="badge ${dn.status === 'Submitted' ? 'badge-success' : 'badge-draft'}">${dn.status}</span></td>
+                <td>
+                  <a href="#o2c/deliveries/view/${dn.id}" class="btn btn-outline btn-sm">View Details</a>
+                </td>
               </tr>
             `).join("")}
           </tbody>
@@ -588,6 +627,7 @@ function renderInvoicesList(container) {
               <th>Billing Date</th>
               <th>Invoice Total</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -600,7 +640,10 @@ function renderInvoicesList(container) {
                 <td>${si.date}</td>
                 <td style="font-weight: 700;">$${si.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 <td>
-                  <span class="badge ${si.status === 'Paid' ? 'badge-success' : 'badge-pending'}">${si.status}</span>
+                  <span class="badge ${si.status === 'Paid' ? 'badge-success' : si.status === 'Unpaid' ? 'badge-pending' : 'badge-draft'}">${si.status}</span>
+                </td>
+                <td>
+                  <a href="#o2c/invoices/view/${si.id}" class="btn btn-outline btn-sm">View Details</a>
                 </td>
               </tr>
             `).join("")}
@@ -862,4 +905,241 @@ function renderReturnForm(container) {
       window.showToast(err.message, "danger");
     }
   });
+}
+
+function renderDeliveryDetails(container, deliveryId) {
+  const dn = store.getDeliveries().find(d => d.id === deliveryId);
+  if (!dn) {
+    container.innerHTML = `<div class="card"><p class="text-danger">Delivery Note not found.</p></div>`;
+    return;
+  }
+
+  const isDraft = dn.status === "Draft";
+  const canApprove = store.checkPermission("o2c", "approve");
+  const canDelete = store.checkPermission("o2c", "delete");
+
+  container.innerHTML = `
+    <div class="card animate-fade-in">
+      <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <span style="font-size: 0.8rem; color: var(--color-inventory); font-family: monospace; font-weight: 700;">${dn.id}</span>
+          <h3 class="card-title" style="margin-top: 4px;">Delivery Note details</h3>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="window.location.hash='#o2c/deliveries'" class="btn btn-outline btn-sm">Back</button>
+          ${isDraft && canApprove ? `<button id="submit-dn-btn" class="btn btn-primary btn-sm" style="background-color:var(--color-inventory);">Submit Delivery Note</button>` : ''}
+          ${isDraft && canDelete ? `<button id="delete-dn-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Customer</div>
+          <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${dn.customerName}</div>
+          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(dn.customerId).taxId}</div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Sales Order ID:</span>
+            <strong style="font-family:monospace;">${dn.salesOrderId}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Warehouse Facility:</span>
+            <strong>${store.getWarehouse(dn.warehouseId).name}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Posting Date:</span>
+            <strong>${dn.date}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span class="text-secondary">Status:</span>
+            <span class="badge ${dn.status === 'Submitted' ? 'badge-success' : 'badge-draft'}">${dn.status}</span>
+          </div>
+        </div>
+      </div>
+
+      <h4 style="font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 10px;">Items Dispatched</h4>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Description</th>
+              <th>UOM</th>
+              <th>Shipped Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dn.items.map(item => `
+              <tr>
+                <td style="font-family: monospace; font-weight: 600;">${item.sku}</td>
+                <td><strong>${store.getItem(item.itemId)?.name || 'Product'}</strong></td>
+                <td>${item.uom || 'pcs'}</td>
+                <td style="font-weight: 700;">${item.qty}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  if (isDraft && canApprove) {
+    container.querySelector("#submit-dn-btn").addEventListener("click", () => {
+      try {
+        store.submitDeliveryNote(dn.id);
+        window.showToast(`Delivery Note ${dn.id} submitted. Stock levels updated.`, "success");
+        renderDeliveryDetails(container, deliveryId);
+      } catch (err) {
+        window.showToast(err.message, "danger");
+      }
+    });
+  }
+  if (isDraft && canDelete) {
+    container.querySelector("#delete-dn-btn").addEventListener("click", () => {
+      if (confirm("Delete this draft Delivery Note?")) {
+        try {
+          store.deleteDocument("o2c", "deliveries", dn.id);
+          window.showToast("Draft Delivery Note deleted.", "warning");
+          window.location.hash = "#o2c/deliveries";
+        } catch (err) {
+          window.showToast(err.message, "danger");
+        }
+      }
+    });
+  }
+}
+
+function renderInvoiceDetails(container, invoiceId) {
+  const si = store.getSalesInvoices().find(s => s.id === invoiceId);
+  if (!si) {
+    container.innerHTML = `<div class="card"><p class="text-danger">Invoice not found.</p></div>`;
+    return;
+  }
+
+  const isDraft = si.status === "Draft";
+  const canApprove = store.checkPermission("o2c", "approve");
+  const canDelete = store.checkPermission("o2c", "delete");
+  
+  const showPayBtn = si.status === "Unpaid" && store.checkPermission("finance", "create");
+
+  container.innerHTML = `
+    <div class="card animate-fade-in">
+      <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <span style="font-size: 0.8rem; color: var(--color-primary); font-family: monospace; font-weight: 700;">${si.id}</span>
+          <h3 class="card-title" style="margin-top: 4px;">Sales Invoice details</h3>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="window.location.hash='#o2c/invoices'" class="btn btn-outline btn-sm">Back</button>
+          ${isDraft && canApprove ? `<button id="submit-si-btn" class="btn btn-primary btn-sm">Submit Sales Invoice</button>` : ''}
+          ${isDraft && canDelete ? `<button id="delete-si-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
+          ${showPayBtn ? `<button id="proceed-payment-btn" class="btn btn-success btn-sm">+ Collect Cash Receipt</button>` : ''}
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Customer</div>
+          <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${si.customerName}</div>
+          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(si.customerId).taxId}</div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Sales Order ID:</span>
+            <strong style="font-family:monospace;">${si.salesOrderId}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Delivery Note ID:</span>
+            <strong style="font-family:monospace;">${si.deliveryNoteId || 'N/A'}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Posting Date:</span>
+            <strong>${si.date}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span class="text-secondary">Status:</span>
+            <span class="badge ${si.status === 'Paid' ? 'badge-success' : si.status === 'Unpaid' ? 'badge-pending' : 'badge-draft'}">${si.status}</span>
+          </div>
+        </div>
+      </div>
+
+      <h4 style="font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 10px;">Items Invoiced</h4>
+      <div class="table-container" style="margin-bottom: 24px;">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Description</th>
+              <th>UOM</th>
+              <th>Invoiced Qty</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${si.items.map(item => `
+              <tr>
+                <td style="font-family: monospace; font-weight: 600;">${item.sku}</td>
+                <td><strong>${item.name}</strong></td>
+                <td>${item.uom}</td>
+                <td>${item.qty}</td>
+                <td>$${item.price.toFixed(2)}</td>
+                <td style="font-weight: 700;">$${(item.qty * item.price).toFixed(2)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="max-width: 300px; margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span class="text-secondary">Subtotal:</span>
+          <span>$${si.subtotal.toFixed(2)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span class="text-secondary">VAT Tax (12%):</span>
+          <span>$${si.tax.toFixed(2)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span class="text-secondary">Withholding (2%):</span>
+          <span class="text-danger">-$${si.withholding.toFixed(2)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; font-size: 1.1rem; font-weight: 700;">
+          <span>Net Total:</span>
+          <span class="text-success">$${si.total.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (isDraft && canApprove) {
+    container.querySelector("#submit-si-btn").addEventListener("click", () => {
+      try {
+        store.submitSalesInvoice(si.id);
+        window.showToast(`Sales Invoice ${si.id} submitted and posted to General Ledger accounts.`, "success");
+        renderInvoiceDetails(container, invoiceId);
+      } catch (err) {
+        window.showToast(err.message, "danger");
+      }
+    });
+  }
+  if (isDraft && canDelete) {
+    container.querySelector("#delete-si-btn").addEventListener("click", () => {
+      if (confirm("Delete this draft Sales Invoice?")) {
+        try {
+          store.deleteDocument("o2c", "salesInvoices", si.id);
+          window.showToast("Draft Sales Invoice deleted.", "warning");
+          window.location.hash = "#o2c/invoices";
+        } catch (err) {
+          window.showToast(err.message, "danger");
+        }
+      }
+    });
+  }
+  if (showPayBtn) {
+    container.querySelector("#proceed-payment-btn").addEventListener("click", () => {
+      window.location.hash = `#accounting/payments/new?type=Receive&bill=${si.id}`;
+    });
+  }
 }
