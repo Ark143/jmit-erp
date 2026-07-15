@@ -1,0 +1,536 @@
+// JMIT ERP - Settings & Business Partners Module View (Phase 2)
+import { store } from "../store.js";
+
+export function renderSettings(container, pathParts) {
+  const subRoute = pathParts[1] || "config";
+
+  const html = `
+    <div class="settings-container animate-fade-in">
+      <!-- Settings Tab Nav -->
+      <div class="settings-tab-nav">
+        <button class="settings-tab-btn ${subRoute === 'config' ? 'active' : ''}" onclick="window.location.hash='#settings/config'">
+          ⚙️ Global System Configuration
+        </button>
+        <button class="settings-tab-btn ${subRoute === 'partners' ? 'active' : ''}" onclick="window.location.hash='#settings/partners'">
+          👥 Business Partners Registry
+        </button>
+      </div>
+
+      <div id="settings-content-viewport"></div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+
+  const contentViewport = container.querySelector("#settings-content-viewport");
+
+  if (subRoute === "config") {
+    renderConfig(contentViewport);
+  } else if (subRoute === "partners") {
+    renderPartners(contentViewport);
+  }
+}
+
+// Render Global Configuration Sub-Tab
+function renderConfig(container) {
+  const settings = store.getSettings();
+  const companies = store.getCompanies();
+  const periods = store.getPeriods();
+  const accounts = store.getAccounts().filter(a => a.parentCode !== null); // leaf nodes only for mapping
+  const maps = settings.glMappings;
+
+  // Options for Account Tagging Dropdowns
+  const accountOptions = (selected) => {
+    return accounts.map(a => `<option value="${a.code}" ${a.code === selected ? 'selected' : ''}>${a.code} - ${a.name}</option>`).join("");
+  };
+
+  const html = `
+    <div class="grid-2">
+      <!-- Left Column: Company & Period Configs -->
+      <div>
+        <!-- Active Company Selection -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Active Org Context</h3>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Selected Active Operating Company</label>
+            <select id="active-company-select" class="form-control">
+              ${companies.map(c => `<option value="${c.id}" ${c.id === settings.activeCompany ? 'selected' : ''}>${c.name} (${c.currency})</option>`).join("")}
+            </select>
+          </div>
+        </div>
+
+        <!-- Multi-Company List & Creation -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Registered Corporations</h3>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+            ${companies.map(c => `
+              <div style="border: 1px solid var(--border-color); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.85rem; background-color: rgba(255,255,255,0.015);">
+                <strong>${c.name}</strong>
+                <div class="text-muted" style="font-size: 0.75rem; margin-top: 2px;">
+                  TIN: ${c.taxId} | Base Currency: ${c.currency} | Address: ${c.address}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+          <button id="add-company-btn" class="btn btn-outline btn-sm">Add Company Entity</button>
+        </div>
+
+        <!-- SKU Code rules -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">SKU Autogen Rules</h3>
+          </div>
+          <form id="sku-rule-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">SKU Prefix</label>
+                <input type="text" id="sku-prefix" class="form-control" value="${settings.skuRule.prefix}" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sequence Start</label>
+                <input type="number" id="sku-seq" class="form-control" value="${settings.skuRule.sequence}" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">SKU Suffix</label>
+              <input type="text" id="sku-suffix" class="form-control" value="${settings.skuRule.suffix}" />
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Save Rules</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right Column: Currency rates, periods, GL Tagging -->
+      <div>
+        <!-- Fiscal Periods and Locking -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Fiscal Periods & Locking</h3>
+          </div>
+          <div class="table-container" style="max-height: 150px; overflow-y: auto; margin-bottom: 12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Locked</th>
+                  <th>Toggle</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${periods.map(p => `
+                  <tr>
+                    <td><strong>${p.name}</strong> (${p.start} - ${p.end})</td>
+                    <td>${p.closed ? '<span class="badge badge-danger">Locked</span>' : '<span class="badge badge-success">Open</span>'}</td>
+                    <td>
+                      <button class="btn btn-outline btn-sm toggle-period-btn" data-name="${p.name}">
+                        ${p.closed ? "Unlock" : "Lock / Close"}
+                      </button>
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          <button id="add-period-btn" class="btn btn-outline btn-sm">Create New Period</button>
+        </div>
+
+        <!-- GL Account Mappings tagging -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Global Account Tagging Mappings</h3>
+          </div>
+          <form id="gl-mapping-form" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 6px;">
+              <strong>Accounting Event Trigger</strong>
+              <strong>Target General Ledger GL</strong>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 10px;">
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Default Cash</span>
+              <select name="cashAccount" class="form-control">${accountOptions(maps.cashAccount)}</select>
+              
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Accounts Receivable (AR)</span>
+              <select name="arAccount" class="form-control">${accountOptions(maps.arAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Accounts Payable (AP)</span>
+              <select name="apAccount" class="form-control">${accountOptions(maps.apAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Inventory Asset</span>
+              <select name="inventoryAccount" class="form-control">${accountOptions(maps.inventoryAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">VAT Payable (Tax)</span>
+              <select name="taxAccount" class="form-control">${accountOptions(maps.taxAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Sales Revenue</span>
+              <select name="salesAccount" class="form-control">${accountOptions(maps.salesAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Cost of Goods Sold</span>
+              <select name="cogsAccount" class="form-control">${accountOptions(maps.cogsAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Depreciation Expense</span>
+              <select name="deprExpenseAccount" class="form-control">${accountOptions(maps.deprExpenseAccount)}</select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 10px;">Save Mappings</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inner Config Modals Mount -->
+    <div id="inner-config-modal"></div>
+  `;
+
+  container.innerHTML = html;
+
+  // Bind Actions for Config views
+  const modalMount = container.querySelector("#inner-config-modal");
+
+  // Company Select Change
+  container.querySelector("#active-company-select").addEventListener("change", (e) => {
+    store.state.settings.activeCompany = e.target.value;
+    const activeC = store.getActiveCompany();
+    store.state.settings.activeCurrency = activeC ? activeC.currency : "USD";
+    store.saveState();
+    window.showToast(`Switched active corporate entity to: ${activeC.name}. Header values synchronized.`, "info");
+  });
+
+  // Toggle Period Locks
+  container.querySelectorAll(".toggle-period-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const name = btn.getAttribute("data-name");
+      store.togglePeriod(name);
+      const period = store.getPeriods().find(p => p.name === name);
+      window.showToast(`Fiscal Period ${name} is now ${period.closed ? 'LOCKED (Closed)' : 'OPEN'}.`, "warning");
+      renderConfig(container);
+    });
+  });
+
+  // SKU settings Save
+  container.querySelector("#sku-rule-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    store.state.settings.skuRule.prefix = e.target.querySelector("#sku-prefix").value;
+    store.state.settings.skuRule.sequence = Number(e.target.querySelector("#sku-seq").value);
+    store.state.settings.skuRule.suffix = e.target.querySelector("#sku-suffix").value;
+    store.saveState();
+    window.showToast("SKU Autogeneration sequence rules updated.", "success");
+  });
+
+  // GL tagging Save
+  container.querySelector("#gl-mapping-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const selectElements = e.target.querySelectorAll("select");
+    selectElements.forEach(sel => {
+      store.state.settings.glMappings[sel.name] = sel.value;
+    });
+    store.saveState();
+    window.showToast("Default GL mapping definitions saved successfully.", "success");
+  });
+
+  // Add Company Wizard
+  container.querySelector("#add-company-btn").addEventListener("click", () => {
+    modalMount.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">Register Corporate Entity</h3>
+            <button class="modal-close">&times;</button>
+          </div>
+          <form id="new-company-form">
+            <div class="modal-body">
+              <div class="form-group">
+                <label class="form-label">Corporate Name</label>
+                <input type="text" id="comp-name" class="form-control" placeholder="JMIT Holdings Inc." required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Company Address</label>
+                <input type="text" id="comp-address" class="form-control" placeholder="Ayala Ave, Makati, PH" required />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Tax ID (TIN / RFC)</label>
+                  <input type="text" id="comp-taxid" class="form-control" placeholder="222-333-444" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Base Currency</label>
+                  <select id="comp-currency" class="form-control">
+                    <option value="USD">USD ($)</option>
+                    <option value="PHP">PHP (₱)</option>
+                    <option value="EUR">EUR (€)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline modal-cancel">Cancel</button>
+              <button type="submit" class="btn btn-primary">Create Company</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const close = () => modalMount.innerHTML = "";
+    modalMount.querySelector(".modal-close").addEventListener("click", close);
+    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+    
+    modalMount.querySelector("#new-company-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const comp = {
+        name: ev.target.querySelector("#comp-name").value,
+        address: ev.target.querySelector("#comp-address").value,
+        taxId: ev.target.targetId || ev.target.querySelector("#comp-taxid").value,
+        currency: ev.target.querySelector("#comp-currency").value
+      };
+      store.addCompany(comp);
+      window.showToast(`Company "${comp.name}" successfully registered.`, "success");
+      close();
+      renderConfig(container);
+    });
+  });
+
+  // Open New Period Wizard
+  container.querySelector("#add-period-btn").addEventListener("click", () => {
+    modalMount.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">Open Fiscal Period</h3>
+            <button class="modal-close">&times;</button>
+          </div>
+          <form id="new-period-form">
+            <div class="modal-body">
+              <div class="form-group">
+                <label class="form-label">Period Name (YYYY-MM)</label>
+                <input type="text" id="per-name" class="form-control" placeholder="2026-08" required />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Start Date</label>
+                  <input type="date" id="per-start" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">End Date</label>
+                  <input type="date" id="per-end" class="form-control" required />
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline modal-cancel">Cancel</button>
+              <button type="submit" class="btn btn-primary">Open Period</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const close = () => modalMount.innerHTML = "";
+    modalMount.querySelector(".modal-close").addEventListener("click", close);
+    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+    
+    modalMount.querySelector("#new-period-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const per = {
+        name: ev.target.querySelector("#per-name").value,
+        start: ev.target.querySelector("#per-start").value,
+        end: ev.target.querySelector("#per-end").value
+      };
+      store.addPeriod(per);
+      window.showToast(`Opened fiscal period: ${per.name}`, "success");
+      close();
+      renderConfig(container);
+    });
+  });
+}
+
+// Render Business Partners Sub-Tab
+function renderPartners(container) {
+  const partners = store.getPartners();
+
+  const html = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="font-size: 1.15rem;">Business Contacts Directory</h3>
+      <button id="add-partner-btn" class="btn btn-primary">
+        + Create Business Partner
+      </button>
+    </div>
+
+    <!-- Tabs inside partners view -->
+    <div class="grid-3">
+      <!-- Customers Column -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title text-success">Customers</h3>
+        </div>
+        <div class="partner-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto;">
+          ${partners.customers.map(c => `
+            <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: var(--radius-sm); background-color: rgba(255,255,255,0.015);">
+              <strong>${c.name}</strong> <span style="font-family: monospace; font-size:0.75rem; color: var(--color-o2c); float: right;">${c.id}</span>
+              <div class="text-muted" style="font-size: 0.75rem; margin-top: 4px;">
+                TIN: ${c.taxId} | VAT: ${(c.taxRate*100)}% | WHT: ${(c.whtRate*100)}%
+                <div style="margin-top: 2px;">Email: ${c.email}</div>
+                <div>Address: ${c.address}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- Vendors Column -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title text-warning">Suppliers / Vendors</h3>
+        </div>
+        <div class="partner-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto;">
+          ${partners.vendors.map(v => `
+            <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: var(--radius-sm); background-color: rgba(255,255,255,0.015);">
+              <strong>${v.name}</strong> <span style="font-family: monospace; font-size:0.75rem; color: var(--color-p2p); float: right;">${v.id}</span>
+              <div class="text-muted" style="font-size: 0.75rem; margin-top: 4px;">
+                TIN: ${v.taxId} | Term: ${v.defaultTerms}
+                <div style="margin-top: 2px;">Email: ${v.email}</div>
+                <div>Address: ${v.address}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- Leads Column -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title text-info">Prospect Leads</h3>
+        </div>
+        <div class="partner-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto;">
+          ${partners.leads.map(l => `
+            <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: var(--radius-sm); background-color: rgba(255,255,255,0.015);">
+              <strong>${l.name}</strong> <span style="font-family: monospace; font-size:0.75rem; color: var(--color-secondary); float: right;">${l.id}</span>
+              <div class="text-muted" style="font-size: 0.75rem; margin-top: 4px;">
+                Status: <span class="badge badge-pending">${l.status}</span>
+                <div style="margin-top: 2px;">Contact: ${l.contact} | ${l.phone}</div>
+                <div>Email: ${l.email}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    </div>
+
+    <!-- Modals Mount -->
+    <div id="partner-modal-mount"></div>
+  `;
+
+  container.innerHTML = html;
+
+  const modalMount = container.querySelector("#partner-modal-mount");
+
+  // Add Partner Click
+  container.querySelector("#add-partner-btn").addEventListener("click", () => {
+    modalMount.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 550px;">
+          <div class="modal-header">
+            <h3 class="modal-title">Create Business Partner</h3>
+            <button class="modal-close">&times;</button>
+          </div>
+          <form id="new-partner-form">
+            <div class="modal-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Partner Type</label>
+                  <select id="part-type" class="form-control" required>
+                    <option value="Customer">Customer</option>
+                    <option value="Vendor">Supplier / Vendor</option>
+                    <option value="Lead">Prospect Lead</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Tax ID (TIN / RFC)</label>
+                  <input type="text" id="part-taxid" class="form-control" placeholder="123-456-789" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Company / Contact Name</label>
+                <input type="text" id="part-name" class="form-control" placeholder="Makati Retailers" required />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Contact Person</label>
+                  <input type="text" id="part-contact" class="form-control" placeholder="Jose Rizal" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phone Number</label>
+                  <input type="text" id="part-phone" class="form-control" placeholder="+63 900 123 4567" required />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" id="part-email" class="form-control" placeholder="info@partner.com" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Office Address</label>
+                <input type="text" id="part-address" class="form-control" placeholder="100 Paseo De Roxas, Makati" required />
+              </div>
+
+              <!-- Customer specific taxation inputs -->
+              <div id="customer-tax-config" class="form-row" style="display: flex;">
+                <div class="form-group" style="flex: 1;">
+                  <label class="form-label">VAT Rate (%)</label>
+                  <input type="number" id="part-vat" class="form-control" min="0" max="0.30" step="0.01" value="0.12" />
+                </div>
+                <div class="form-group" style="flex: 1;">
+                  <label class="form-label">Withholding Rate (%)</label>
+                  <input type="number" id="part-wht" class="form-control" min="0" max="0.15" step="0.01" value="0.02" />
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline modal-cancel">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Partner</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const close = () => modalMount.innerHTML = "";
+    modalMount.querySelector(".modal-close").addEventListener("click", close);
+    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+
+    const typeSelect = modalMount.querySelector("#part-type");
+    const taxRow = modalMount.querySelector("#customer-tax-config");
+    
+    typeSelect.addEventListener("change", () => {
+      if (typeSelect.value === "Customer") {
+        taxRow.style.display = "flex";
+      } else {
+        taxRow.style.display = "none";
+      }
+    });
+
+    modalMount.querySelector("#new-partner-form").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const type = typeSelect.value;
+      const partner = {
+        name: ev.target.querySelector("#part-name").value,
+        contact: ev.target.querySelector("#part-contact").value,
+        email: ev.target.querySelector("#part-email").value,
+        phone: ev.target.querySelector("#part-phone").value,
+        address: ev.target.querySelector("#part-address").value,
+        taxId: ev.target.querySelector("#part-taxid").value || "N/A"
+      };
+
+      if (type === "Customer") {
+        partner.taxRate = Number(ev.target.querySelector("#part-vat").value);
+        partner.whtRate = Number(ev.target.querySelector("#part-wht").value);
+      }
+
+      store.addPartner(type, partner);
+      window.showToast(`Business Partner "${partner.name}" saved as ${type}.`, "success");
+      close();
+      renderPartners(container);
+    });
+  });
+}

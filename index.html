@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JMIT ERP - Enterprise Resource Planning System</title>
+  <!-- Google Fonts: Plus Jakarta Sans for premium typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Local Custom CSS Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Left Navigation Sidebar: Accodion Mega Menu -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" fill="url(#brand-grad)" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" fill="url(#brand-grad)" opacity="0.8" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" fill="url(#brand-grad)" opacity="0.6" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" fill="url(#brand-grad)" opacity="0.4" />
+            <defs>
+              <linearGradient id="brand-grad" x1="3" y1="3" x2="10" y2="10" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#6366f1" />
+                <stop offset="1" stop-color="#06b6d4" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="brand-name">JMIT <span class="brand-accent">ERP</span></span>
+      </div>
+
+      <!-- Mega Menu Navigation -->
+      <nav class="sidebar-nav">
+        <div class="menu-section">
+          <a href="#dashboard" class="nav-item single-item active" data-tab="dashboard">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <!-- Sales Accordion -->
+        <div class="menu-section accordion">
+          <button class="accordion-trigger">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+            <span>Sales & O2C</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="accordion-content">
+            <a href="#o2c/sales-orders" class="sub-item" data-route="o2c/sales-orders">Sales Orders</a>
+            <a href="#o2c/deliveries" class="sub-item" data-route="o2c/deliveries">Delivery Notes</a>
+            <a href="#o2c/invoices" class="sub-item" data-route="o2c/invoices">Sales Invoices</a>
+            <a href="#o2c/returns" class="sub-item" data-route="o2c/returns">Sales Returns</a>
+          </div>
+        </div>
+
+        <!-- Purchasing Accordion -->
+        <div class="menu-section accordion">
+          <button class="accordion-trigger">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
+            <span>Procuring & P2P</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="accordion-content">
+            <a href="#p2p/purchase-orders" class="sub-item" data-route="p2p/purchase-orders">Purchase Orders</a>
+            <a href="#p2p/goods-receipts" class="sub-item" data-route="p2p/goods-receipts">Goods Receipts (GRN)</a>
+            <a href="#p2p/invoices" class="sub-item" data-route="p2p/invoices">Supplier Invoices</a>
+            <a href="#p2p/returns" class="sub-item" data-route="p2p/returns">Purchase Returns</a>
+          </div>
+        </div>
+
+        <!-- Inventory Accordion -->
+        <div class="menu-section accordion">
+          <button class="accordion-trigger">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+            <span>Inventory</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="accordion-content">
+            <a href="#inventory/items" class="sub-item" data-route="inventory/items">Product Catalog</a>
+            <a href="#inventory/warehouses" class="sub-item" data-route="inventory/warehouses">Warehouses</a>
+            <a href="#inventory/stock-entries" class="sub-item" data-route="inventory/stock-entries">Stock Entries</a>
+          </div>
+        </div>
+
+        <!-- Accounting & Finance Accordion -->
+        <div class="menu-section accordion">
+          <button class="accordion-trigger">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            <span>Finance & GL</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="accordion-content">
+            <a href="#accounting/coa" class="sub-item" data-route="accounting/coa">Chart of Accounts Tree</a>
+            <a href="#accounting/journal" class="sub-item" data-route="accounting/journal">General Journals</a>
+            <a href="#accounting/payments" class="sub-item" data-route="accounting/payments">Payments Entry</a>
+            <a href="#accounting/fixed-assets" class="sub-item" data-route="accounting/fixed-assets">Fixed Assets</a>
+          </div>
+        </div>
+
+        <!-- Reports Accordion -->
+        <div class="menu-section accordion">
+          <button class="accordion-trigger">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <span>Reports & Analytics</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="accordion-content">
+            <a href="#reports/pl" class="sub-item" data-route="reports/pl">Profit & Loss</a>
+            <a href="#reports/bs" class="sub-item" data-route="reports/bs">Balance Sheet</a>
+            <a href="#reports/valuation" class="sub-item" data-route="reports/valuation">Stock Valuation</a>
+          </div>
+        </div>
+
+        <!-- Setup Accordion -->
+        <div class="menu-section accordion">
+          <button class="accordion-trigger">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Setup & System</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="accordion-content">
+            <a href="#settings/config" class="sub-item" data-route="settings/config">Global Settings</a>
+            <a href="#settings/partners" class="sub-item" data-route="settings/partners">Business Partners</a>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <button id="reset-db-btn" class="btn btn-outline btn-sm btn-block">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Reset Database
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+      <!-- Top Navigation Header -->
+      <header class="top-header">
+        <div class="header-search">
+          <h1 class="page-title" id="current-page-title">Dashboard</h1>
+        </div>
+        
+        <div class="header-actions">
+          <!-- Live KPI Badges -->
+          <div class="live-badge-group">
+            <div class="live-badge" title="Active Company Settings">
+              <span class="badge-label">Company:</span>
+              <span class="badge-value text-info" id="header-company-name">-</span>
+            </div>
+            <div class="live-badge" title="Total Bank & Cash Balance">
+              <span class="badge-label">Cash:</span>
+              <span class="badge-value text-success" id="header-cash-value">$0.00</span>
+            </div>
+            <div class="live-badge" title="Inventory Stock Status">
+              <span class="badge-label">Stock:</span>
+              <span class="badge-value text-purple" id="header-stock-value">0 units</span>
+            </div>
+          </div>
+          
+          <div class="user-profile">
+            <div class="profile-avatar">AD</div>
+            <div class="profile-info">
+              <span class="profile-name">Admin User</span>
+              <span class="profile-role">JMIT Controller</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dynamic Content Injection Area -->
+      <main class="content-body" id="app-viewport">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <p>Initializing JMIT ERP Modules...</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast Notification Center -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Central Store & Routing Script Injection -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
