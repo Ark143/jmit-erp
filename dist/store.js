@@ -706,6 +706,37 @@ class Store {
         this.saveState();
         return newItem;
     }
+    updateItem(id, itemData) {
+        if (!this.checkPermission("inventory", "update"))
+            throw new Error("Security Access Denied: Inventory update privileges required!");
+        const item = this.state.items.find(i => i.id === id);
+        if (!item)
+            throw new Error("Product item not found.");
+        if (itemData.name !== undefined)
+            item.name = itemData.name;
+        if (itemData.category !== undefined)
+            item.category = itemData.category;
+        if (itemData.uom !== undefined)
+            item.uom = itemData.uom;
+        if (itemData.cost !== undefined)
+            item.cost = Number(itemData.cost);
+        if (itemData.price !== undefined)
+            item.price = Number(itemData.price);
+        if (itemData.reorder !== undefined)
+            item.reorder = Number(itemData.reorder);
+        this.saveState();
+        return item;
+    }
+    deleteItem(id) {
+        if (!this.checkPermission("inventory", "delete"))
+            throw new Error("Security Access Denied: Inventory delete privileges required!");
+        const idx = this.state.items.findIndex(i => i.id === id);
+        if (idx === -1)
+            throw new Error("Product item not found.");
+        this.state.items.splice(idx, 1);
+        this.saveState();
+        return true;
+    }
     // ============================================
     // === CRUD WORKFLOW APPROVALS ENGINE ===
     // ============================================

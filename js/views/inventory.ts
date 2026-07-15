@@ -50,12 +50,181 @@ export function renderInventory(container, pathParts) {
   }
 }
 
+// --- Shared item form (create + edit) ---
+
+function showItemForm(modalMount, container, existingItem) {
+  const warehouses = store.getWarehouses();
+  const isEdit = existingItem !== null;
+  const whOptions = warehouses.map(w => `<option value="${w.id}" ${isEdit && existingItem.stocks[w.id] ? 'selected' : ''}>${w.name}</option>`).join("");
+  const catOptions = store.getProductCategories().map(c => `<option value="${c}" ${isEdit && existingItem.category === c ? 'selected' : ''}>${c}</option>`).join("");
+
+  const nameVal = isEdit ? existingItem.name : "";
+  const costVal = isEdit ? existingItem.cost : 100;
+  const priceVal = isEdit ? existingItem.price : 180;
+  const reorderVal = isEdit ? existingItem.reorder : 5;
+  const title = isEdit ? `Edit Product: ${existingItem.name}` : "Register Product Catalog Item";
+  const submitLabel = isEdit ? "Update Item" : "Register Item";
+  const formId = isEdit ? "edit-item-form" : "new-item-form";
+
+  modalMount.innerHTML = `
+    <div class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">${title}</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <form id="${formId}">
+          <div class="modal-body">
+            ${!isEdit ? `
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">SKU Generation</label>
+                <select id="item-sku-type" class="form-control">
+                  <option value="auto">Auto-Generated SKU</option>
+                  <option value="manual">Manual Entry SKU</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Manual SKU Code</label>
+                <input type="text" id="item-sku-manual" class="form-control" placeholder="HW-MON-5K" disabled />
+              </div>
+            </div>
+            ` : ''}
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Category</label>
+                <select id="item-category" class="form-control">${catOptions}</select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">UOM (Unit of Measure)</label>
+                <select id="item-uom" class="form-control">
+                  <option value="pcs" ${isEdit && existingItem.uom === 'pcs' ? 'selected' : ''}>pcs (Single)</option>
+                  <option value="pack_of_5" ${isEdit && existingItem.uom === 'pack_of_5' ? 'selected' : ''}>pack of 5</option>
+                  <option value="box_of_10" ${isEdit && existingItem.uom === 'box_of_10' ? 'selected' : ''}>box of 10</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Product Name Description</label>
+              <input type="text" id="item-name" class="form-control" placeholder="Dual Core Server Core" value="${nameVal}" required />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Cost Price ($)</label>
+                <input type="number" id="item-cost" class="form-control" min="0" step="0.01" value="${costVal}" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sales Price ($)</label>
+                <input type="number" id="item-price" class="form-control" min="0" step="0.01" value="${priceVal}" required />
+              </div>
+            </div>
+
+            ${!isEdit ? `
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Initial Storage Warehouse</label>
+                <select id="item-init-wh" class="form-control">${whOptions}</select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Initial Stock Load Qty</label>
+                <input type="number" id="item-init-qty" class="form-control" min="0" value="0" />
+              </div>
+            </div>
+            ` : ''}
+
+            <div class="form-group">
+              <label class="form-label">Safety Reorder Limit</label>
+              <input type="number" id="item-reorder" class="form-control" min="0" value="${reorderVal}" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline modal-cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="background-color: var(--color-inventory);">${submitLabel}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  const close = () => { modalMount.innerHTML = ""; };
+  modalMount.querySelector(".modal-close").addEventListener("click", close);
+  modalMount.querySelector(".modal-cancel").addEventListener("click", close);
+
+  // SKU type toggle (create-only)
+  if (!isEdit) {
+    const skuTypeSelect = modalMount.querySelector("#item-sku-type");
+    const skuManualInput = modalMount.querySelector("#item-sku-manual");
+    skuTypeSelect.addEventListener("change", () => {
+      if (skuTypeSelect.value === "manual") {
+        skuManualInput.disabled = false;
+        skuManualInput.required = true;
+      } else {
+        skuManualInput.disabled = true;
+        skuManualInput.required = false;
+        skuManualInput.value = "";
+      }
+    });
+  }
+
+  modalMount.querySelector(`#${formId}`).addEventListener("submit", (ev) => {
+    ev.preventDefault();
+
+    if (isEdit) {
+      // UPDATE
+      store.updateItem(existingItem.id, {
+        name: ev.target.querySelector("#item-name").value,
+        category: ev.target.querySelector("#item-category").value,
+        uom: ev.target.querySelector("#item-uom").value,
+        cost: Number(ev.target.querySelector("#item-cost").value),
+        price: Number(ev.target.querySelector("#item-price").value),
+        reorder: Number(ev.target.querySelector("#item-reorder").value)
+      });
+      window.showToast(`Product "${existingItem.name}" updated.`, "success");
+    } else {
+      // CREATE
+      const itemData = {
+        autoSku: ev.target.querySelector("#item-sku-type").value === "auto",
+        sku: ev.target.querySelector("#item-sku-manual").value,
+        name: ev.target.querySelector("#item-name").value,
+        category: ev.target.querySelector("#item-category").value,
+        uom: ev.target.querySelector("#item-uom").value,
+        cost: Number(ev.target.querySelector("#item-cost").value),
+        price: Number(ev.target.querySelector("#item-price").value),
+        initialWarehouseId: ev.target.querySelector("#item-init-wh").value,
+        initialStock: Number(ev.target.querySelector("#item-init-qty").value),
+        reorder: Number(ev.target.querySelector("#item-reorder").value)
+      };
+
+      store.addItem(itemData);
+
+      // Post capitalization GL posting if initial load is made
+      if (itemData.initialStock > 0) {
+        const val = itemData.initialStock * itemData.cost;
+        store.addManualJournalEntry(`Initial stock capitalization load SKU: ${itemData.name}`, [
+          { code: store.getSettings().glMappings.inventoryAccount, debit: val, credit: 0 },
+          { code: store.getSettings().glMappings.opexAccount, debit: 0, credit: val }
+        ]);
+      }
+      window.showToast(`Product registered successfully under item catalog registry.`, "success");
+    }
+
+    close();
+    renderItemsCatalog(container);
+  });
+}
+
 // --- 1. PRODUCT CATALOGUE RENDERER ---
 
 function renderItemsCatalog(container) {
   const items = store.getItems();
   const warehouses = store.getWarehouses();
   const canCreateItem = store.checkPermission("inventory", "create");
+  const canUpdateItem = store.checkPermission("inventory", "update");
+  const canDeleteItem = store.checkPermission("inventory", "delete");
+  const showActions = canUpdateItem || canDeleteItem;
 
   container.innerHTML = `
     <div class="card animate-fade-in">
@@ -77,6 +246,7 @@ function renderItemsCatalog(container) {
               ${warehouses.map(w => `<th>${w.name}</th>`).join("")}
               <th>Total Stock</th>
               <th>Safety Limit</th>
+              ${showActions ? '<th style="width:120px;">Actions</th>' : ''}
             </tr>
           </thead>
           <tbody>
@@ -97,6 +267,14 @@ function renderItemsCatalog(container) {
                   `).join("")}
                   <td style="font-weight: 700; ${isLow ? 'color: var(--color-danger);' : 'color: var(--color-o2c);'}">${totalStock}</td>
                   <td>${item.reorder}</td>
+                  ${showActions ? `
+                    <td>
+                      <div style="display:flex;gap:4px;">
+                        ${canUpdateItem ? `<button class="btn btn-outline btn-sm edit-item-btn" data-item-id="${item.id}" title="Edit">✏️</button>` : ''}
+                        ${canDeleteItem ? `<button class="btn btn-outline btn-sm delete-item-btn" data-item-id="${item.id}" title="Delete" style="color:var(--color-danger);border-color:var(--color-danger);">🗑️</button>` : ''}
+                      </div>
+                    </td>
+                  ` : ''}
                 </tr>
               `;
             }).join("")}
@@ -109,142 +287,39 @@ function renderItemsCatalog(container) {
     <div id="catalog-modal"></div>
   `;
 
-  // Bind register item wizard
   const modalMount = container.querySelector("#catalog-modal");
+
+  // --- Bind "Register New Item" ---
   const addItemBtn = container.querySelector("#add-item-btn");
   if (addItemBtn) {
-    addItemBtn.addEventListener("click", () => {
-    let whOptions = warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join("");
+    addItemBtn.addEventListener("click", () => showItemForm(modalMount, container, null));
+  }
 
-    modalMount.innerHTML = `
-      <div class="modal-overlay">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3 class="modal-title">Register Product Catalog Item</h3>
-            <button class="modal-close">&times;</button>
-          </div>
-          <form id="new-item-form">
-            <div class="modal-body">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">SKU Generation</label>
-                  <select id="item-sku-type" class="form-control">
-                    <option value="auto">Auto-Generated SKU</option>
-                    <option value="manual">Manual Entry SKU</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Manual SKU Code</label>
-                  <input type="text" id="item-sku-manual" class="form-control" placeholder="HW-MON-5K" disabled />
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Category</label>
-                  <select id="item-category" class="form-control">
-                    ${store.getProductCategories().map(c => `<option value="${c}">${c}</option>`).join("")}
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">UOM (Unit of Measure)</label>
-                  <select id="item-uom" class="form-control">
-                    <option value="pcs">pcs (Single)</option>
-                    <option value="pack_of_5">pack of 5</option>
-                    <option value="box_of_10">box of 10</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Product Name Description</label>
-                <input type="text" id="item-name" class="form-control" placeholder="Dual Core Server Core" required />
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Cost Price ($)</label>
-                  <input type="number" id="item-cost" class="form-control" min="0" step="0.01" value="100" required />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Sales Price ($)</label>
-                  <input type="number" id="item-price" class="form-control" min="0" step="0.01" value="180" required />
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Initial Storage Warehouse</label>
-                  <select id="item-init-wh" class="form-control">
-                    ${whOptions}
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Initial Stock Load Qty</label>
-                  <input type="number" id="item-init-qty" class="form-control" min="0" value="0" />
-                </div>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline modal-cancel">Cancel</button>
-              <button type="submit" class="btn btn-primary" style="background-color: var(--color-inventory);">Register Item</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    `;
-
-    const close = () => modalMount.innerHTML = "";
-    modalMount.querySelector(".modal-close").addEventListener("click", close);
-    modalMount.querySelector(".modal-cancel").addEventListener("click", close);
-
-    const skuTypeSelect = modalMount.querySelector("#item-sku-type");
-    const skuManualInput = modalMount.querySelector("#item-sku-manual");
-
-    skuTypeSelect.addEventListener("change", () => {
-      if (skuTypeSelect.value === "manual") {
-        skuManualInput.disabled = false;
-        skuManualInput.required = true;
-      } else {
-        skuManualInput.disabled = true;
-        skuManualInput.required = false;
-        skuManualInput.value = "";
-      }
-    });
-
-    modalMount.querySelector("#new-item-form").addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      
-      const itemData = {
-        autoSku: skuTypeSelect.value === "auto",
-        sku: skuManualInput.value,
-        name: ev.target.querySelector("#item-name").value,
-        category: ev.target.querySelector("#item-category").value,
-        uom: ev.target.querySelector("#item-uom").value,
-        cost: Number(ev.target.querySelector("#item-cost").value),
-        price: Number(ev.target.querySelector("#item-price").value),
-        initialWarehouseId: ev.target.querySelector("#item-init-wh").value,
-        initialStock: Number(ev.target.querySelector("#item-init-qty").value),
-        reorder: 5
-      };
-
-      store.addItem(itemData);
-
-      // Post capitalization GL posting if initial load is made
-      if (itemData.initialStock > 0) {
-        const val = itemData.initialStock * itemData.cost;
-        store.addManualJournalEntry(`Initial stock capitalization load SKU: ${itemData.name}`, [
-          { code: store.getSettings().glMappings.inventoryAccount, debit: val, credit: 0 },
-          { code: store.getSettings().glMappings.opexAccount, debit: 0, credit: val } // Offset adjustment opex
-        ]);
-      }
-
-      window.showToast(`Product registered successfully under item catalog registry.`, "success");
-      close();
-      renderItemsCatalog(container);
+  // --- Bind Edit buttons ---
+  container.querySelectorAll(".edit-item-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const itemId = btn.getAttribute("data-item-id");
+      const item = store.getItem(itemId);
+      if (item) showItemForm(modalMount, container, item);
     });
   });
-  } // end if (addItemBtn)
+
+  // --- Bind Delete buttons ---
+  container.querySelectorAll(".delete-item-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const itemId = btn.getAttribute("data-item-id");
+      const item = store.getItem(itemId);
+      if (item && confirm(`Delete product "${item.name}" (${item.sku})? This cannot be undone.`)) {
+        try {
+          store.deleteItem(itemId);
+          window.showToast(`Product "${item.name}" deleted.`, "success");
+          renderItemsCatalog(container);
+        } catch (err) {
+          window.showToast(err.message, "danger");
+        }
+      }
+    });
+  });
 }
 
 // --- 2. WAREHOUSE REGISTRY RENDERER ---
