@@ -1,4 +1,4 @@
-// JMIT ERP - Chart of Accounts Tree & Journal Ledger View Module (Phase 2)
+// JMIT ERP - Chart of Accounts & Journal Ledger View Module (Phase 2)
 import { store } from "../store";
 import { renderFinance } from "./finance";
 
@@ -16,7 +16,7 @@ export function renderAccounting(container, pathParts) {
       <!-- Sub Tab Nav -->
       <div class="settings-tab-nav">
         <button class="settings-tab-btn ${subRoute === 'coa' ? 'active' : ''}" onclick="window.location.hash='#accounting/coa'">
-          🌳 Chart of Accounts Tree
+          🌳 Chart of Accounts
         </button>
         <button class="settings-tab-btn ${subRoute === 'journal' ? 'active' : ''}" onclick="window.location.hash='#accounting/journal'">
           📖 General Journals Book
@@ -187,7 +187,7 @@ function renderCOATree(container) {
 
       try {
         store.addGLAccount({ code, name, type, parentCode });
-        window.showToast(`Account ${code} successfully registered in Chart of Accounts Tree.`, "success");
+        window.showToast(`Account ${code} successfully registered in Chart of Accounts.`, "success");
         close();
         renderCOATree(container);
       } catch (err) {

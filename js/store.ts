@@ -162,7 +162,7 @@ const DEFAULT_STATE = {
     { id: "AST001", name: "Main HQ Backup Generator", purchaseDate: "2026-01-15", cost: 24000, usefulLife: 5, salvageValue: 4000, accumDepreciation: 2000, assetAccount: "1800", deprAccount: "1810", expenseAccount: "6100", active: true }
   ],
 
-  // Chart of Accounts Tree (Structured with parentCode)
+  // Chart of Accounts (Structured with parentCode)
   accounts: [
     // --- Assets (1000) ---
     { code: "1000", name: "Assets", type: "Asset", parentCode: null, balance: 0 },
@@ -374,6 +374,49 @@ class Store {
     const role = this.getCurrentRole();
     if (!role || !role.permissions[module]) return false;
     return !!role.permissions[module][action];
+  }
+
+  // ─── USER CRUD ───
+  addUser(user) {
+    this.state.users.push(user);
+    this.saveState();
+    return user;
+  }
+  updateUser(userId, fields) {
+    const user = this.state.users.find(u => u.id === userId);
+    if (!user) throw new Error("User not found");
+    Object.assign(user, fields);
+    this.saveState();
+    return user;
+  }
+  deleteUser(userId) {
+    if (this.state.currentUser === userId) throw new Error("Cannot delete current user");
+    const idx = this.state.users.findIndex(u => u.id === userId);
+    if (idx === -1) throw new Error("User not found");
+    this.state.users.splice(idx, 1);
+    this.saveState();
+  }
+
+  // ─── ROLE CRUD ───
+  addRole(role) {
+    this.state.roles.push(role);
+    this.saveState();
+    return role;
+  }
+  updateRole(roleId, fields) {
+    const role = this.state.roles.find(r => r.id === roleId);
+    if (!role) throw new Error("Role not found");
+    Object.assign(role, fields);
+    this.saveState();
+    return role;
+  }
+  deleteRole(roleId) {
+    const usersWithRole = this.state.users.filter(u => u.roleId === roleId);
+    if (usersWithRole.length > 0) throw new Error(`Cannot delete: ${usersWithRole.length} user(s) assigned to this role`);
+    const idx = this.state.roles.findIndex(r => r.id === roleId);
+    if (idx === -1) throw new Error("Role not found");
+    this.state.roles.splice(idx, 1);
+    this.saveState();
   }
 
   // --- CRUD GENERIC TRIGGERS ON DRAFTS ---

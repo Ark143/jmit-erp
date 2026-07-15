@@ -12,6 +12,9 @@ export function renderSettings(container, pathParts) {
         <button class="settings-tab-btn ${subRoute === 'partners' ? 'active' : ''}" onclick="window.location.hash='#settings/partners'">
           👥 Business Partners Registry
         </button>
+        <button class="settings-tab-btn ${subRoute === 'users' ? 'active' : ''}" onclick="window.location.hash='#settings/users'">
+          👤 Users & Access
+        </button>
         <button class="settings-tab-btn ${subRoute === 'workflows' ? 'active' : ''}" onclick="window.location.hash='#settings/workflows'">
           🛡️ Workflows & Roles Clearance
         </button>
@@ -27,6 +30,9 @@ export function renderSettings(container, pathParts) {
     }
     else if (subRoute === "partners") {
         renderPartners(contentViewport);
+    }
+    else if (subRoute === "users") {
+        renderUsers(contentViewport);
     }
     else if (subRoute === "workflows") {
         renderWorkflowsAndRoles(contentViewport);
@@ -616,6 +622,370 @@ function renderPartners(container) {
             close();
             renderPartners(container);
         });
+    });
+}
+// ─── Users & Access Management ───
+function renderUsers(container) {
+    const users = store.getUsers();
+    const roles = store.getRoles();
+    const currentUserId = store.state.currentUser;
+    const refresh = () => renderUsers(container);
+    container.innerHTML = `
+    <div class="animate-fade-in">
+      <div class="card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 class="card-title">User Accounts & Role Assignment</h3>
+          <button class="btn btn-primary btn-sm" id="add-user-btn">+ Add User</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Assigned Role</th>
+                <th style="text-align:center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.map(u => {
+        const role = roles.find(r => r.id === u.roleId);
+        const isCurrent = u.id === currentUserId;
+        return `
+                  <tr>
+                    <td><strong>${u.name}</strong>${isCurrent ? ' <span style="color:var(--color-primary);font-size:0.75rem;">(you)</span>' : ''}</td>
+                    <td>${u.username}</td>
+                    <td><span class="badge badge-purple">${role ? role.name : 'No Role'}</span></td>
+                    <td style="text-align:center;">
+                      <button class="btn btn-outline btn-xs edit-user-btn" data-userid="${u.id}">Edit</button>
+                      ${!isCurrent ? `<button class="btn btn-outline btn-xs delete-user-btn" data-userid="${u.id}" style="color:var(--color-danger);margin-left:4px;">Delete</button>` : ''}
+                    </td>
+                  </tr>
+                `;
+    }).join("")}
+              ${users.length === 0 ? `<tr><td colspan="4" style="text-align:center;padding:24px;">No users configured.</td></tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Roles Summary -->
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 class="card-title">Role Profiles</h3>
+          <button class="btn btn-primary btn-sm" id="add-role-btn">+ Add Role</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Role Name</th>
+                <th>Modules Assigned</th>
+                <th>Users</th>
+                <th style="text-align:center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${roles.map((r, ri) => {
+        const activeModules = Object.entries(r.permissions)
+            .filter(([_, p]) => p.read || p.create || p.update || p.delete || p.approve)
+            .map(([mod]) => mod.toUpperCase());
+        const roleUsers = users.filter(u => u.roleId === r.id);
+        const modulesList = [
+            { key: "o2c", name: "Sales & O2C" },
+            { key: "p2p", name: "Procurement & P2P" },
+            { key: "inventory", name: "Inventory & Stock" },
+            { key: "accounting", name: "Finance & GL" },
+            { key: "finance", name: "Treasury & Assets" },
+            { key: "settings", name: "Setup & System" }
+        ];
+        const actions = ["read", "create", "update", "delete", "approve"];
+        const actionLabels = { read: "R", create: "C", update: "U", delete: "D", approve: "A" };
+        const modCheckboxes = modulesList.map(m => {
+            const cbs = actions.map(a => {
+                const checked = r.permissions[m.key] ? r.permissions[m.key][a] : false;
+                return `<label style="cursor:pointer;font-size:0.7rem;white-space:nowrap;display:inline-flex;align-items:center;gap:1px;margin-right:4px;"><input type="checkbox" class="perm-cb-inline" data-roleid="${r.id}" data-mod="${m.key}" data-action="${a}" ${checked ? 'checked' : ''} />${actionLabels[a]}</label>`;
+            }).join("");
+            return `<div style="display:flex;align-items:center;padding:2px 0;"><span style="width:130px;font-size:0.75rem;flex-shrink:0;">${m.name}</span>${cbs}</div>`;
+        }).join("");
+        return `
+                  <tr>
+                    <td><strong>${r.name}</strong></td>
+                    <td>${activeModules.length > 0 ? activeModules.map(m => `<span class="badge badge-blue" style="margin-right:4px;font-size:0.7rem;">${m}</span>`).join("") : '<span style="color:var(--color-muted)">None</span>'}</td>
+                    <td>${roleUsers.length > 0 ? roleUsers.map(u => u.name).join(", ") : '<span style="color:var(--color-muted)">—</span>'}</td>
+                    <td style="text-align:center;">
+                      <button class="btn btn-outline btn-xs toggle-perms-btn" data-roleid="${r.id}">Permissions</button>
+                      ${roleUsers.length === 0 ? `<button class="btn btn-outline btn-xs delete-role-btn" data-roleid="${r.id}" style="color:var(--color-danger);margin-left:4px;">Delete</button>` : ''}
+                    </td>
+                  </tr>
+                  <tr class="perms-row-${r.id}" style="display:none;">
+                    <td colspan="4" style="padding:8px 16px;background:rgba(99,102,241,0.04);">
+                      <div style="font-size:0.75rem;font-weight:600;margin-bottom:6px;color:var(--color-muted);">Module Permissions — check to grant:</div>
+                      ${modCheckboxes}
+                      <button class="btn btn-primary btn-xs save-perms-inline-btn" data-roleid="${r.id}" style="margin-top:8px;">Save Permissions</button>
+                      <span class="perms-saved-msg-${r.id}" style="margin-left:8px;font-size:0.75rem;color:var(--color-success);display:none;">Saved!</span>
+                    </td>
+                  </tr>
+                `;
+    }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Modal -->
+    <div id="user-modal-overlay" class="modal-overlay" style="display:none;"></div>
+    <!-- Role Modal -->
+    <div id="role-modal-overlay" class="modal-overlay" style="display:none;"></div>
+  `;
+    // User Modal openers
+    container.querySelector("#add-user-btn").addEventListener("click", () => openUserModal(null, refresh));
+    container.querySelectorAll(".edit-user-btn").forEach(btn => {
+        btn.addEventListener("click", () => openUserModal(btn.dataset.userid, refresh));
+    });
+    container.querySelectorAll(".delete-user-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            if (confirm("Delete this user?")) {
+                try {
+                    store.deleteUser(btn.dataset.userid);
+                    window.showToast("User deleted", "success");
+                    refresh();
+                }
+                catch (e) {
+                    window.showToast(e.message, "danger");
+                }
+            }
+        });
+    });
+    // Role toggle — expand/collapse inline permissions
+    container.querySelector("#add-role-btn").addEventListener("click", () => openRoleModal(null, refresh));
+    container.querySelectorAll(".toggle-perms-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const row = container.querySelector(`.perms-row-${btn.dataset.roleid}`);
+            if (row) {
+                const isOpen = row.style.display !== "none";
+                row.style.display = isOpen ? "none" : "table-row";
+                btn.textContent = isOpen ? "Permissions" : "Hide";
+            }
+        });
+    });
+    // Inline save permissions
+    container.querySelectorAll(".save-perms-inline-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const roleId = btn.dataset.roleid;
+            const newPerms = { o2c: {}, p2p: {}, inventory: {}, accounting: {}, finance: {}, settings: {} };
+            const actions = ["read", "create", "update", "delete", "approve"];
+            ["o2c", "p2p", "inventory", "accounting", "finance", "settings"].forEach(mod => {
+                actions.forEach(a => { newPerms[mod][a] = false; });
+            });
+            container.querySelectorAll(`.perm-cb-inline[data-roleid="${roleId}"]`).forEach((cb) => {
+                if (cb.checked)
+                    newPerms[cb.dataset.mod][cb.dataset.action] = true;
+            });
+            try {
+                store.updateRole(roleId, { permissions: newPerms });
+                const msg = container.querySelector(`.perms-saved-msg-${roleId}`);
+                if (msg) {
+                    msg.style.display = "inline";
+                    setTimeout(() => { msg.style.display = "none"; }, 1500);
+                }
+            }
+            catch (e) {
+                window.showToast(e.message, "danger");
+            }
+        });
+    });
+    container.querySelectorAll(".delete-role-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            if (confirm("Delete this role?")) {
+                try {
+                    store.deleteRole(btn.dataset.roleid);
+                    window.showToast("Role deleted", "success");
+                    refresh();
+                }
+                catch (e) {
+                    window.showToast(e.message, "danger");
+                }
+            }
+        });
+    });
+}
+function openUserModal(userId, onClose) {
+    const users = store.getUsers();
+    const roles = store.getRoles();
+    const existing = userId ? users.find(u => u.id === userId) : null;
+    const modal = document.getElementById("user-modal-overlay");
+    if (!modal)
+        return;
+    modal.innerHTML = `
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <h3>${existing ? 'Edit User' : 'Add User'}</h3>
+        <button class="modal-close-btn" id="user-modal-close">&times;</button>
+      </div>
+      <form id="user-form">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-control" id="user-name" value="${existing ? existing.name : ''}" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" class="form-control" id="user-username" value="${existing ? existing.username : ''}" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assigned Role</label>
+          <select class="form-control" id="user-role" required>
+            <option value="">— Select Role —</option>
+            ${roles.map(r => `<option value="${r.id}" ${existing && existing.roleId === r.id ? 'selected' : ''}>${r.name}</option>`).join("")}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px;">
+          ${existing ? 'Save Changes' : 'Create User'}
+        </button>
+      </form>
+    </div>
+  `;
+    modal.style.display = "flex";
+    modal.querySelector("#user-modal-close").addEventListener("click", () => { modal.style.display = "none"; });
+    modal.addEventListener("click", (e) => { if (e.target === modal)
+        modal.style.display = "none"; });
+    modal.querySelector("#user-form").addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const name = modal.querySelector("#user-name").value.trim();
+        const username = modal.querySelector("#user-username").value.trim();
+        const roleId = modal.querySelector("#user-role").value;
+        if (!name || !username || !roleId) {
+            window.showToast("All fields required", "warning");
+            return;
+        }
+        try {
+            if (existing) {
+                store.updateUser(userId, { name, username, roleId });
+                window.showToast("User updated", "success");
+            }
+            else {
+                store.addUser({ id: "usr_" + Date.now(), username, name, roleId });
+                window.showToast("User created", "success");
+            }
+            modal.style.display = "none";
+            onClose();
+        }
+        catch (e) {
+            window.showToast(e.message, "danger");
+        }
+    });
+}
+function openRoleModal(roleId, onClose) {
+    const roles = store.getRoles();
+    const existing = roleId ? roles.find(r => r.id === roleId) : null;
+    const modal = document.getElementById("role-modal-overlay");
+    if (!modal)
+        return;
+    const perms = existing ? existing.permissions : {
+        o2c: { create: false, read: false, update: false, delete: false, approve: false },
+        p2p: { create: false, read: false, update: false, delete: false, approve: false },
+        inventory: { create: false, read: false, update: false, delete: false, approve: false },
+        accounting: { create: false, read: false, update: false, delete: false, approve: false },
+        finance: { create: false, read: false, update: false, delete: false, approve: false },
+        settings: { create: false, read: false, update: false, delete: false, approve: false }
+    };
+    const modulesList = [
+        { key: "o2c", name: "Sales & O2C" },
+        { key: "p2p", name: "Procurement & P2P" },
+        { key: "inventory", name: "Inventory & Stock" },
+        { key: "accounting", name: "Finance & GL" },
+        { key: "finance", name: "Treasury & Assets" },
+        { key: "settings", name: "Setup & System" }
+    ];
+    const checkboxRow = (modKey, action, label) => {
+        const checked = perms[modKey] ? (perms[modKey][action] || false) : false;
+        return `<label style="display:inline-flex;align-items:center;gap:3px;font-size:0.75rem;cursor:pointer;">
+      <input type="checkbox" data-mod="${modKey}" data-action="${action}" ${checked ? 'checked' : ''} /> ${label}
+    </label>`;
+    };
+    modal.innerHTML = `
+    <div class="modal-content" style="max-width:680px;">
+      <div class="modal-header">
+        <h3>${existing ? 'Edit Role: ' + existing.name : 'Create New Role'}</h3>
+        <button class="modal-close-btn" id="role-modal-close">&times;</button>
+      </div>
+      <form id="role-form">
+        <div class="form-group">
+          <label class="form-label">Role Name</label>
+          <input type="text" class="form-control" id="role-name" value="${existing ? existing.name : ''}" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Module Permissions</label>
+          <div class="table-container">
+            <table style="font-size:0.8rem;">
+              <thead>
+                <tr>
+                  <th>Module</th>
+                  <th style="text-align:center;">Read</th>
+                  <th style="text-align:center;">Create</th>
+                  <th style="text-align:center;">Update</th>
+                  <th style="text-align:center;">Delete</th>
+                  <th style="text-align:center;">Approve</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${modulesList.map(m => `
+                  <tr>
+                    <td>${m.name}</td>
+                    <td style="text-align:center;">${checkboxRow(m.key, 'read', 'R')}</td>
+                    <td style="text-align:center;">${checkboxRow(m.key, 'create', 'C')}</td>
+                    <td style="text-align:center;">${checkboxRow(m.key, 'update', 'U')}</td>
+                    <td style="text-align:center;">${checkboxRow(m.key, 'delete', 'D')}</td>
+                    <td style="text-align:center;">${checkboxRow(m.key, 'approve', 'A')}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px;">
+          ${existing ? 'Save Role' : 'Create Role'}
+        </button>
+      </form>
+    </div>
+  `;
+    modal.style.display = "flex";
+    modal.querySelector("#role-modal-close").addEventListener("click", () => { modal.style.display = "none"; });
+    modal.addEventListener("click", (e) => { if (e.target === modal)
+        modal.style.display = "none"; });
+    modal.querySelector("#role-form").addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const name = modal.querySelector("#role-name").value.trim();
+        if (!name) {
+            window.showToast("Role name required", "warning");
+            return;
+        }
+        const newPerms = {};
+        modulesList.forEach(m => { newPerms[m.key] = { create: false, read: false, update: false, delete: false, approve: false }; });
+        modal.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+            if (cb.checked) {
+                const mod = cb.dataset.mod;
+                const action = cb.dataset.action;
+                if (newPerms[mod])
+                    newPerms[mod][action] = true;
+            }
+        });
+        try {
+            if (existing) {
+                store.updateRole(roleId, { name, permissions: newPerms });
+                window.showToast("Role updated", "success");
+            }
+            else {
+                store.addRole({ id: "role_" + Date.now(), name, permissions: newPerms });
+                window.showToast("Role created", "success");
+            }
+            modal.style.display = "none";
+            onClose();
+        }
+        catch (e) {
+            window.showToast(e.message, "danger");
+        }
     });
 }
 function renderWorkflowsAndRoles(container) {

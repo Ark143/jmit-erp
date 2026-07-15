@@ -140,7 +140,7 @@ function syncMegaMenuSelection(hash) {
 // Routing engine parsing nested path arrays: [module, page, action, id] with Security Guards
 function router() {
     const hash = window.location.hash.replace("#", "") || "dashboard";
-    const pathParts = hash.split("/");
+    const pathParts = hash.split("/").map(p => p.split("?")[0]);
     const primaryModule = pathParts[0];
     syncMegaMenuSelection(hash);
     // Security Clearance Check
