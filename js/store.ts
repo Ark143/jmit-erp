@@ -5,14 +5,14 @@ const DEFAULT_STATE = {
   settings: {
     activeCompany: "CMP001",
     companies: [
-      { id: "CMP001", name: "JMIT Enterprises Inc.", taxId: "111-222-333", address: "HQ Manila, Port Area, PH", taxIdType: "TIN", currency: "USD" },
+      { id: "CMP001", name: "JMIT Enterprises Inc.", taxId: "111-222-333", address: "HQ Manila, Port Area, PH", taxIdType: "TIN", currency: "PHP" },
       { id: "CMP002", name: "JMIT Logistics Cebu", taxId: "444-555-666", address: "IT Park Tower 2, Cebu City, PH", taxIdType: "TIN", currency: "PHP" }
     ],
-    activeCurrency: "USD",
+    activeCurrency: "PHP",
     exchangeRates: {
-      USD: 1.0,
-      PHP: 56.0,
-      EUR: 0.92
+      PHP: 1.0,
+      USD: 0.018,
+      EUR: 0.016
     },
     periods: [
       { name: "2026-07", start: "2026-07-01", end: "2026-07-31", closed: false },
