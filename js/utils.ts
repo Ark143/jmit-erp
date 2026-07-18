@@ -6,6 +6,21 @@
  * Closes on backdrop click, Escape key, and close button.
  * @returns cleanup function to remove the modal
  */
+
+// --- Currency formatting ---
+import { store } from "./store";
+
+/** Format a number with the active company's currency symbol */
+export function formatMoney(amount: number, decimals = 2): string {
+  const settings = store.getSettings();
+  const company = store.getActiveCompany();
+  const symbol = (company && company.currency === 'PHP') ? '₱' : '$';
+  return symbol + amount.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
 export function showModal(
   container: HTMLElement,
   options: {

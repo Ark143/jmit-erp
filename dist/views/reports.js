@@ -1,5 +1,6 @@
 // JMIT ERP - Real-Time Financial Statements & Reports View Module (Phase 2)
 import { store } from "../store.js";
+import { formatMoney } from "../utils.js";
 // Global selected company filter for reports
 let selectedCompanyFilter = "";
 export function renderReports(container, pathParts) {
@@ -115,41 +116,41 @@ function renderPL(viewport, companyId) {
         <div class="report-row level-1">Operating Revenue</div>
         <div class="report-row indent">
           <span>Gross Product Sales Revenue</span>
-          <span>$${sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(sales)}</span>
         </div>
         <div class="report-row indent" style="border-bottom: 2px solid var(--border-color);">
           <strong style="color:var(--text-primary);">Net Sales Revenue</strong>
-          <strong>$${sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+          <strong>${formatMoney(sales)}</strong>
         </div>
 
         <div class="report-row level-1" style="margin-top: 16px;">Cost of Goods Sold (COGS)</div>
         <div class="report-row indent" style="border-bottom: 2px solid var(--border-color);">
           <span>Product Cost Expensed</span>
-          <span>$${cogs.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(cogs)}</span>
         </div>
 
         <div class="report-row level-1 text-success" style="margin-top: 16px;">
           <span>Gross Profit Margin</span>
-          <span>$${grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(grossProfit)}</span>
         </div>
 
         <div class="report-row level-1" style="margin-top: 20px;">Operating Expenses</div>
         <div class="report-row indent">
           <span>General & Administrative Expenses</span>
-          <span>$${opex.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(opex)}</span>
         </div>
         <div class="report-row indent">
           <span>Equipment Depreciation Expenses</span>
-          <span>$${depr.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(depr)}</span>
         </div>
         <div class="report-row indent" style="border-bottom: 2px solid var(--border-color);">
           <strong style="color:var(--text-primary);">Total Operating Expenses</strong>
-          <strong>$${totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+          <strong>${formatMoney(totalExpenses)}</strong>
         </div>
 
         <div class="report-row level-2 ${netIncome >= 0 ? 'text-success' : 'text-danger'}" style="margin-top: 24px;">
           <span>Net Income / Profit</span>
-          <span>$${netIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(netIncome)}</span>
         </div>
       </div>
     </div>
@@ -191,76 +192,76 @@ function renderBS(viewport, companyId) {
         <div class="report-row level-1">Assets</div>
         <div class="report-row indent">
           <span>Cash & Bank Balances</span>
-          <span>$${cash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(cash)}</span>
         </div>
         <div class="report-row indent">
           <span>Accounts Receivable (AR)</span>
-          <span>$${ar.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(ar)}</span>
         </div>
         <div class="report-row indent">
           <span>Withholding Tax Asset</span>
-          <span>$${whtAsset.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(whtAsset)}</span>
         </div>
         <div class="report-row indent">
           <span>Inventory Assets (FIFO cost)</span>
-          <span>$${inventory.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(inventory)}</span>
         </div>
         <div class="report-row indent">
           <span>Fixed Property & Equipment</span>
-          <span>$${fixed.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(fixed)}</span>
         </div>
         <div class="report-row indent" style="color: var(--color-danger);">
           <span>Less: Accumulated Depreciation</span>
-          <span>-$${Math.abs(accumDepr).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>-${formatMoney(Math.abs(accumDepr))}</span>
         </div>
         <div class="report-row indent level-1" style="border-bottom: 2px solid var(--border-color); color: var(--color-secondary);">
           <span>Total Asset Holdings</span>
-          <span>$${totalAssets.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(totalAssets)}</span>
         </div>
 
         <!-- LIABILITIES -->
         <div class="report-row level-1" style="margin-top: 20px;">Liabilities</div>
         <div class="report-row indent">
           <span>Accounts Payable (AP)</span>
-          <span>$${ap.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(ap)}</span>
         </div>
         <div class="report-row indent">
           <span>VAT Output Payable</span>
-          <span>$${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(tax)}</span>
         </div>
         <div class="report-row indent">
           <span>Withholding Tax Payable</span>
-          <span>$${whtLiab.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(whtLiab)}</span>
         </div>
         <div class="report-row indent level-1" style="border-bottom: 2px solid var(--border-color); color: var(--color-p2p);">
           <span>Total Liabilities Outstanding</span>
-          <span>$${totalLiabilities.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(totalLiabilities)}</span>
         </div>
 
         <!-- EQUITY -->
         <div class="report-row level-1" style="margin-top: 20px;">Shareholder Equity</div>
         <div class="report-row indent">
           <span>Paid-In Share Capital</span>
-          <span>$${capital.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(capital)}</span>
         </div>
         <div class="report-row indent">
           <span>Retained Earnings</span>
-          <span>$${retained.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(retained)}</span>
         </div>
         <div class="report-row indent level-1" style="border-bottom: 2px solid var(--border-color); color: var(--color-primary);">
           <span>Total Equity Reserve</span>
-          <span>$${totalEquity.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(totalEquity)}</span>
         </div>
 
         <!-- BALANCE ROW -->
         <div class="report-row level-2" style="border-bottom: 2px double var(--border-color); margin-top: 24px;">
           <span>Total Liabilities & Shareholder Equity</span>
-          <span>$${totalLiabilitiesEquity.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span>${formatMoney(totalLiabilitiesEquity)}</span>
         </div>
 
         ${!isBalanced ? `
           <div class="text-danger" style="text-align: center; margin-top: 14px; font-weight: 700;">
-            WARNING: Balance Sheet is out of balance by $${variance.toFixed(2)}
+            WARNING: Balance Sheet is out of balance by ${formatMoney(variance)}
           </div>
         ` : `
           <div class="text-success" style="text-align: center; margin-top: 14px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
@@ -307,10 +308,10 @@ function renderValuation(viewport, companyId) {
                   <td style="font-family: monospace; font-weight: 700; color: var(--color-inventory);">${item.sku}</td>
                   <td><strong>${item.name}</strong></td>
                   <td>${item.uom}</td>
-                  <td>$${item.cost.toFixed(2)}</td>
+                  <td>${formatMoney(item.cost)}</td>
                   ${warehouses.map(w => `<td>${item.stocks[w.id] || 0}</td>`).join("")}
                   <td style="font-weight: 600;">${totalQty}</td>
-                  <td style="font-weight: 700; color: var(--text-primary);">$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                  <td style="font-weight: 700; color: var(--text-primary);">${formatMoney(val)}</td>
                 </tr>
               `;
     }).join("")}
@@ -321,7 +322,7 @@ function renderValuation(viewport, companyId) {
         return `<td style="font-weight:600;">${whSum}</td>`;
     }).join("")}
               <td style="font-weight: 700;">${items.reduce((sum, i) => sum + Object.values(i.stocks).reduce((a, b) => a + b, 0), 0)}</td>
-              <td style="font-weight: 800; color: var(--color-inventory); font-size: 1rem;">$${totalAssetSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              <td style="font-weight: 800; color: var(--color-inventory); font-size: 1rem;">${formatMoney(totalAssetSum)}</td>
             </tr>
           </tbody>
         </table>

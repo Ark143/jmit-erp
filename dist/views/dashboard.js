@@ -1,5 +1,6 @@
 // JMIT ERP - Dashboard View Module (Phase 2 Master)
 import { store } from "../store.js";
+import { formatMoney } from "../utils.js";
 export function renderDashboard(container) {
     const items = store.getItems();
     const salesOrders = store.getSalesOrders();
@@ -38,7 +39,7 @@ export function renderDashboard(container) {
           </div>
           <div class="kpi-info">
             <span class="kpi-label">Cash & Treasury</span>
-            <span class="kpi-value text-info">$${cashBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span class="kpi-value text-info">${formatMoney(cashBalance)}</span>
           </div>
         </div>
 
@@ -49,7 +50,7 @@ export function renderDashboard(container) {
           </div>
           <div class="kpi-info">
             <span class="kpi-label">Sales Revenue</span>
-            <span class="kpi-value text-success">$${revenueBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span class="kpi-value text-success">${formatMoney(revenueBalance)}</span>
           </div>
         </div>
 
@@ -60,7 +61,7 @@ export function renderDashboard(container) {
           </div>
           <div class="kpi-info">
             <span class="kpi-label">Inventory Valuation</span>
-            <span class="kpi-value text-purple">$${inventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span class="kpi-value text-purple">${formatMoney(inventoryValue)}</span>
           </div>
         </div>
 
@@ -71,7 +72,7 @@ export function renderDashboard(container) {
           </div>
           <div class="kpi-info">
             <span class="kpi-label">Net Profit</span>
-            <span class="kpi-value ${netIncome >= 0 ? 'text-success' : 'text-danger'}">$${netIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span class="kpi-value ${netIncome >= 0 ? 'text-success' : 'text-danger'}">${formatMoney(netIncome)}</span>
           </div>
         </div>
       </div>
@@ -120,11 +121,11 @@ export function renderDashboard(container) {
           <div style="display: flex; gap: 20px; font-size: 0.8rem; margin-top: 10px;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <span style="width: 10px; height: 10px; border-radius: 50%; background-color: var(--color-o2c); display: inline-block;"></span>
-              <span class="text-secondary">Sales Revenue: $${salesTotal.toFixed(2)}</span>
+              <span class="text-secondary">Sales Revenue: ${formatMoney(salesTotal)}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
               <span style="width: 10px; height: 10px; border-radius: 50%; background-color: var(--color-p2p); display: inline-block;"></span>
-              <span class="text-secondary">Purchases: $${purchaseTotal.toFixed(2)}</span>
+              <span class="text-secondary">Purchases: ${formatMoney(purchaseTotal)}</span>
             </div>
           </div>
         </div>
@@ -188,7 +189,7 @@ export function renderDashboard(container) {
             const acct = store.getAccount(l.code);
             const dir = l.debit > 0 ? "Dr" : "Cr";
             const amt = l.debit > 0 ? l.debit : l.credit;
-            return `<span style="font-size: 0.75rem; padding: 2px 6px; background-color: rgba(255,255,255,0.03); border-radius: 4px; margin-right: 4px;">${acct ? acct.name : l.code} (${dir} $${amt.toFixed(2)})</span>`;
+            return `<span style="font-size: 0.75rem; padding: 2px 6px; background-color: rgba(255,255,255,0.03); border-radius: 4px; margin-right: 4px;">${acct ? acct.name : l.code} (${dir} ${formatMoney(amt)})</span>`;
         }).join(" ");
         return `
                   <tr>

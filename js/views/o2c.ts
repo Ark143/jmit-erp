@@ -1,5 +1,6 @@
 // JMIT ERP - Sales & Order-to-Cash (O2C) Full-Page Flow View Module
 import { store } from "../store";
+import { formatMoney } from "../utils";
 
 export function renderO2C(container, pathParts) {
   const subPage = pathParts[1] || "sales-orders";
@@ -72,7 +73,7 @@ function renderSalesOrdersList(container) {
                 <td><strong>${so.customerName}</strong></td>
                 <td>${so.date}</td>
                 <td><span class="badge badge-draft">${so.currency}</span> (Rate: ${so.rate})</td>
-                <td style="font-weight: 700;">$${so.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-weight: 700;">${formatMoney(so.total)}</td>
                 <td>
                   <span class="badge ${so.status === 'Closed' ? 'badge-success' : 'badge-pending'}">${so.status}</span>
                 </td>
@@ -95,7 +96,7 @@ function renderSalesOrderForm(container) {
   const activeCompany = store.getActiveCompany();
 
   let customerOptions = customers.map(c => `<option value="${c.id}">${c.name} (TIN: ${c.taxId})</option>`).join("");
-  let itemOptions = items.map(i => `<option value="${i.id}">${i.name} ($${i.price})</option>`).join("");
+  let itemOptions = items.map(i => `<option value="${i.id}">${i.name} (${formatMoney(i.price)})</option>`).join("");
 
   container.innerHTML = `
     <div class="card animate-fade-in">
@@ -174,18 +175,64 @@ function renderSalesOrderForm(container) {
           <button type="button" id="so-add-line" class="btn btn-outline btn-sm">+ Add Line Item</button>
         </div>
 
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); text-align: right;">
-          <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
-            Subtotal: <strong id="so-subtotal">$0.00</strong>
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div class="form-group">
+              <label class="form-label">VAT Amount (₱)</label>
+              <input type="number" id="so-vat-amt" class="form-control" value="0" step="0.01" min="0" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">WHT Amount (₱)</label>
+              <input type="number" id="so-wht-amt" class="form-control" value="0" step="0.01" min="0" placeholder="0.00" />
+            </div>
+            <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; background: rgba(255,255,255,0.02); display:flex; align-items:center;">
+              <span style="font-size: 0.75rem; color: var(--text-secondary);">Sales GL: <strong id="so-salesacct-disp" style="font-family:monospace;">${store.getSettings().glMappings.salesAccount}</strong></span>
+            </div>
           </div>
-          <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
-            VAT (12%): <strong id="so-tax">$0.00</strong>
+          
+          <!-- Other Charges -->
+          <div style="margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+              <label class="form-label" style="margin:0;">Other Charges</label>
+              <button type="button" id="so-add-charge" class="btn btn-outline btn-xs">+ Add Charge</button>
+            </div>
+            <table id="so-charges-table" style="width:100%; font-size:0.8rem;">
+              <thead><tr>
+                <th style="width:160px;">GL Account</th>
+                <th style="width:80px;">Rate%</th>
+                <th style="width:120px;">Amount</th>
+                <th style="width:70px;">Base</th>
+                <th style="width:35px;" title="VAT">V</th>
+                <th style="width:35px;" title="WHT">W</th>
+                <th style="width:120px;">Total</th>
+                <th style="width:30px;"></th>
+              </tr></thead>
+              <tbody id="so-charges-body"></tbody>
+            </table>
           </div>
-          <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
-            Withholding Tax (2%): <strong id="so-wht">$0.00</strong>
-          </div>
-          <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">
-            Net Order Total: <strong id="so-total" class="text-success">$0.00</strong>
+          
+          <div style="text-align: right; padding-top: 12px; border-top: 1px solid var(--border-color);">
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              Subtotal: <strong id="so-subtotal">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              VAT from Charges: <strong id="so-vat-charges" style="display:none;">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              WHT from Charges: <strong id="so-wht-charges" style="display:none;">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              VAT Amount (manual): <strong id="so-tax">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              WHT Amount (manual): <strong id="so-wht">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              Other Charges: <strong id="so-other-total">$0.00</strong>
+            </div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">
+              Net Order Total: <strong id="so-total" class="text-success">$0.00</strong>
+            </div>
           </div>
         </div>
 
@@ -232,14 +279,72 @@ function renderSalesOrderForm(container) {
       }
     });
 
-    const tax = parseFloat((subtotal * 0.12).toFixed(2));
-    const wht = parseFloat((subtotal * 0.02).toFixed(2));
-    const total = parseFloat((subtotal + tax - wht).toFixed(2));
+    const maps = store.getSettings().glMappings;
+    
+    // Compute charges and auto-fill VAT/WHT from tagged GL accounts
+    let otherTotal = 0;
+    let autoVat = 0;
+    let autoWht = 0;
+    
+    container.querySelectorAll(".so-charge-row").forEach(row => {
+      const amt = Number((row.querySelector(".charge-amt") as HTMLInputElement).value) || 0;
+      const chargeVatPct = Number((row.querySelector(".charge-vat") as HTMLInputElement).value) || 0;
+      const acctCode = (row.querySelector(".charge-acct") as HTMLSelectElement).value;
+      const baseOn = (row.querySelector(".charge-base") as HTMLSelectElement).value;
+      const baseAmt = baseOn === 'gross' ? amt / (1 + chargeVatPct / 100) : amt;
+      const chargeVat = parseFloat((baseAmt * (chargeVatPct / 100)).toFixed(2));
+      const chargeTotal = parseFloat((baseAmt + chargeVat).toFixed(2));
+      (row.querySelector(".charge-total") as HTMLElement).textContent = formatMoney(chargeTotal);
+      
+      // Checkbox routing: VAT/WHT/Other
+      const isVat = (row.querySelector(".charge-isvat") as HTMLInputElement).checked;
+      const isWht = (row.querySelector(".charge-iswht") as HTMLInputElement).checked;
+      if (isVat) {
+        autoVat += chargeTotal;
+      } else if (isWht) {
+        autoWht += chargeTotal;
+      } else {
+        otherTotal += chargeTotal;
+      }
+    });
+    
+    // Auto-fill main VAT/WHT fields from tagged charges
+    if (autoVat > 0) {
+      const vatInp = container.querySelector("#so-vat-amt") as HTMLInputElement;
+      vatInp.value = String(autoVat.toFixed(2));
+    }
+    if (autoWht > 0) {
+      const whtInp = container.querySelector("#so-wht-amt") as HTMLInputElement;
+      whtInp.value = String(autoWht.toFixed(2));
+    }
+    
+    const tax = Number((container.querySelector("#so-vat-amt") as HTMLInputElement).value) || 0;
+    const wht = Number((container.querySelector("#so-wht-amt") as HTMLInputElement).value) || 0;
 
-    container.querySelector("#so-subtotal").textContent = `$${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    container.querySelector("#so-tax").textContent = `$${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    container.querySelector("#so-wht").textContent = `$${wht.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    container.querySelector("#so-total").textContent = `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    const total = parseFloat((subtotal + tax - wht + otherTotal).toFixed(2));
+
+    container.querySelector("#so-subtotal").textContent = `${formatMoney(subtotal)}`;
+    
+    // Show VAT/WHT from charges subtotals
+    const vatChargesEl = container.querySelector("#so-vat-charges") as HTMLElement;
+    if (autoVat > 0) {
+      vatChargesEl.style.display = '';
+      vatChargesEl.textContent = `${formatMoney(autoVat)}`;
+    } else {
+      vatChargesEl.style.display = 'none';
+    }
+    const whtChargesEl = container.querySelector("#so-wht-charges") as HTMLElement;
+    if (autoWht > 0) {
+      whtChargesEl.style.display = '';
+      whtChargesEl.textContent = `${formatMoney(autoWht)}`;
+    } else {
+      whtChargesEl.style.display = 'none';
+    }
+    
+    container.querySelector("#so-tax").textContent = `${formatMoney(tax)}`;
+    container.querySelector("#so-wht").textContent = `${formatMoney(wht)}`;
+    container.querySelector("#so-other-total").textContent = `${formatMoney(otherTotal)}`;
+    container.querySelector("#so-total").textContent = `${formatMoney(total)}`;
   };
 
   const addLine = () => {
@@ -280,7 +385,7 @@ function renderSalesOrderForm(container) {
     itemSel.addEventListener("change", () => {
       const item = store.getItem((itemSel as HTMLSelectElement).value);
       if (item) {
-        (priceInp as HTMLInputElement).value = `$${item.price.toFixed(2)}`;
+        (priceInp as HTMLInputElement).value = item.price.toFixed(2);
       }
       updateTotals();
     });
@@ -294,6 +399,43 @@ function renderSalesOrderForm(container) {
   addLineBtn.addEventListener("click", addLine);
   addLine(); // add first line
 
+  // VAT/WHT manual amount listeners
+  const vatAmtInp = container.querySelector("#so-vat-amt") as HTMLInputElement;
+  const whtAmtInp = container.querySelector("#so-wht-amt") as HTMLInputElement;
+  vatAmtInp.addEventListener("input", updateTotals);
+  whtAmtInp.addEventListener("input", updateTotals);
+
+  // Other charges
+  const chargesBody = container.querySelector("#so-charges-body") as HTMLElement;
+  const acctOptions = store.getAccounts().map(a => `<option value="${a.code}">${a.code} — ${a.name}</option>`).join("");
+  
+  const addCharge = () => {
+    const tr = document.createElement("tr");
+    tr.className = "so-charge-row";
+    tr.innerHTML = `
+      <td><select class="form-control charge-acct" style="width:100%">${acctOptions}</select></td>
+      <td><input type="number" class="form-control charge-vat" style="width:100%" value="0" step="0.01" min="0" max="100" placeholder="12" /></td>
+      <td><input type="number" class="form-control charge-amt" style="width:100%" value="0" step="0.01" min="0" placeholder="0.00" /></td>
+      <td><select class="form-control charge-base" style="width:100%"><option value="net">Net</option><option value="gross">Gross</option></select></td>
+      <td style="text-align:center;"><input type="checkbox" class="charge-isvat" style="width:16px;height:16px;cursor:pointer;" title="Tick if this is VAT" /></td>
+      <td style="text-align:center;"><input type="checkbox" class="charge-iswht" style="width:16px;height:16px;cursor:pointer;" title="Tick if this is WHT" /></td>
+      <td class="charge-total" style="font-weight:700;color:var(--color-o2c);">${formatMoney(0)}</td>
+      <td><button type="button" class="btn btn-outline btn-sm remove-charge" style="color:var(--color-danger);border-color:transparent;">&times;</button></td>
+    `;
+    chargesBody.appendChild(tr);
+    
+    // Listeners
+    tr.querySelector(".charge-amt").addEventListener("input", updateTotals);
+    tr.querySelector(".charge-vat").addEventListener("input", updateTotals);
+    tr.querySelector(".charge-base").addEventListener("change", updateTotals);
+    tr.querySelector(".charge-isvat").addEventListener("change", updateTotals);
+    tr.querySelector(".charge-iswht").addEventListener("change", updateTotals);
+    tr.querySelector(".remove-charge").addEventListener("click", () => { tr.remove(); updateTotals(); });
+    updateTotals();
+  };
+  
+  container.querySelector("#so-add-charge").addEventListener("click", addCharge);
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     
@@ -306,13 +448,29 @@ function renderSalesOrderForm(container) {
     });
 
     try {
+      const otherCharges: any[] = [];
+      chargesBody.querySelectorAll(".so-charge-row").forEach(row => {
+        const acct = (row.querySelector(".charge-acct") as HTMLSelectElement).value;
+        const amt = Number((row.querySelector(".charge-amt") as HTMLInputElement).value) || 0;
+        const vatPct = Number((row.querySelector(".charge-vat") as HTMLInputElement).value) || 0;
+        const baseOn = (row.querySelector(".charge-base") as HTMLSelectElement).value;
+        const isVat = (row.querySelector(".charge-isvat") as HTMLInputElement).checked;
+        const isWht = (row.querySelector(".charge-iswht") as HTMLInputElement).checked;
+        if (amt > 0) otherCharges.push({ accountCode: acct, amount: amt, vatRate: vatPct, baseOn, isVat, isWht });
+      });
+
+      const maps = store.getSettings().glMappings;
       const soData = {
         companyId: (form.querySelector("#so-company") as HTMLSelectElement).value,
         customerId: customerSelect.value,
         date: form.querySelector("#so-date").value,
         items: lines,
         currency: currencySelect.value,
-        rate: Number(rateInput.value)
+        rate: Number(rateInput.value),
+        taxAmount: Number(vatAmtInp.value) || 0,
+        whtAmount: Number(whtAmtInp.value) || 0,
+        salesAccountCode: maps.salesAccount,
+        otherCharges
       };
 
       store.createSalesOrder(soData);
@@ -398,30 +556,47 @@ function renderSalesOrderDetails(container, orderId) {
                 <td><strong>${item.name}</strong></td>
                 <td>${item.uom}</td>
                 <td>${item.qty}</td>
-                <td>$${item.price.toFixed(2)}</td>
-                <td style="font-weight: 700;">$${(item.qty * item.price).toFixed(2)}</td>
+                <td>${formatMoney(item.price)}</td>
+                <td style="font-weight: 700;">${formatMoney(item.qty * item.price)}</td>
               </tr>
             `).join("")}
           </tbody>
         </table>
       </div>
 
-      <div style="max-width: 300px; margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem;">
+      <div style="max-width: 340px; margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem;">
         <div style="display: flex; justify-content: space-between;">
           <span class="text-secondary">Subtotal:</span>
-          <span>$${so.subtotal.toFixed(2)}</span>
+          <span>${formatMoney(so.subtotal)}</span>
         </div>
         <div style="display: flex; justify-content: space-between;">
-          <span class="text-secondary">VAT Tax (12%):</span>
-          <span>$${so.tax.toFixed(2)}</span>
+          <span class="text-secondary">VAT Tax:</span>
+          <span>${formatMoney(so.tax)}</span>
         </div>
         <div style="display: flex; justify-content: space-between;">
-          <span class="text-secondary">Withholding (2%):</span>
-          <span class="text-danger">-$${so.withholding.toFixed(2)}</span>
+          <span class="text-secondary">Withholding Tax:</span>
+          <span class="text-danger">-${formatMoney(so.withholding)}</span>
         </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span class="text-secondary">Sales GL Account:</span>
+          <span style="font-family:monospace;">${so.salesAccountCode || '4100'}</span>
+        </div>
+        ${(so.otherCharges || []).length > 0 ? '<div style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:2px;">Other Charges:</div>' + (so.otherCharges || []).map((ch: any) => {
+        const a = Number(ch.amount) || 0;
+        const v = Number(ch.vatRate) || 0;
+        const b = ch.baseOn || 'net';
+        const base = b === 'gross' ? a / (1 + v / 100) : a;
+        const total = parseFloat((base + (base * v / 100)).toFixed(2));
+        const tag = ch.isVat ? ' [VAT]' : ch.isWht ? ' [WHT]' : '';
+        return `
+        <div style="display: flex; justify-content: space-between; font-size:0.8rem;">
+          <span class="text-secondary">${ch.accountCode}${tag}${ch.vatRate ? ' ' + ch.vatRate + '%' : ''} ${ch.baseOn || 'net'}:</span>
+          <span>${formatMoney(total)}</span>
+        </div>`;
+        }).join("") : ''}
         <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; font-size: 1.1rem; font-weight: 700;">
           <span>Net Total:</span>
-          <span class="text-success">$${so.total.toFixed(2)}</span>
+          <span class="text-success">${formatMoney(so.total)}</span>
         </div>
       </div>
     </div>
@@ -652,7 +827,7 @@ function renderInvoicesList(container) {
                 <td><strong>${si.customerName}</strong></td>
                 <td>${store.getPartner(si.customerId).taxId}</td>
                 <td>${si.date}</td>
-                <td style="font-weight: 700;">$${si.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-weight: 700;">${formatMoney(si.total)}</td>
                 <td>
                   <span class="badge ${si.status === 'Paid' ? 'badge-success' : si.status === 'Unpaid' ? 'badge-pending' : 'badge-draft'}">${si.status}</span>
                 </td>
@@ -727,8 +902,8 @@ function renderInvoiceForm(container) {
                     <td style="font-family:monospace;">${li.sku}</td>
                     <td>${item ? item.name : li.itemId}</td>
                     <td>${li.qty} ${li.uom}</td>
-                    <td>$${price.toFixed(2)}</td>
-                    <td style="font-weight:700;">$${(li.qty * price).toFixed(2)}</td>
+                    <td>${formatMoney(price)}</td>
+                    <td style="font-weight:700;">${formatMoney(li.qty * price)}</td>
                   </tr>
                 `;
               }).join("") : so.items.map(item => `
@@ -736,8 +911,8 @@ function renderInvoiceForm(container) {
                     <td style="font-family:monospace;">${item.sku}</td>
                     <td>${item.name}</td>
                     <td>${item.qty} ${item.uom}</td>
-                    <td>$${item.price.toFixed(2)}</td>
-                    <td style="font-weight:700;">$${(item.qty * item.price).toFixed(2)}</td>
+                    <td>${formatMoney(item.price)}</td>
+                    <td style="font-weight:700;">${formatMoney(item.qty * item.price)}</td>
                   </tr>
               `)}
             </tbody>
@@ -747,19 +922,19 @@ function renderInvoiceForm(container) {
         <div style="margin-top: 20px; border: 1px solid var(--border-color); padding: 14px; border-radius: var(--radius-sm); background-color: rgba(255,255,255,0.01);">
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span>Sales Revenue Subtotal:</span>
-            <strong>$${so.subtotal.toFixed(2)}</strong>
+            <strong>${formatMoney(so.subtotal)}</strong>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span>VAT Output Tax (12%):</span>
-            <strong>$${so.tax.toFixed(2)}</strong>
+            <strong>${formatMoney(so.tax)}</strong>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span>Withholding Tax Withheld (2%):</span>
-            <strong class="text-danger">-$${so.withholding.toFixed(2)}</strong>
+            <strong class="text-danger">-${formatMoney(so.withholding)}</strong>
           </div>
           <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; font-size: 1.1rem; font-weight: 700;">
             <span>Total Accounts Receivable Due:</span>
-            <span class="text-success">$${so.total.toFixed(2)}</span>
+            <span class="text-success">${formatMoney(so.total)}</span>
           </div>
         </div>
 
@@ -819,7 +994,7 @@ function renderReturnsList(container) {
                 <td style="font-family: monospace;">${sr.salesInvoiceId}</td>
                 <td><strong>${sr.customerName}</strong></td>
                 <td>${sr.date}</td>
-                <td style="font-weight: 700;">$${sr.totalReturn.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-weight: 700;">${formatMoney(sr.totalReturn)}</td>
                 <td><span class="badge badge-success">${sr.status}</span></td>
               </tr>
             `).join("")}
@@ -838,7 +1013,7 @@ function renderReturnForm(container) {
   const invoices = store.getSalesInvoices();
   const warehouses = store.getWarehouses();
 
-  let invoiceOptions = invoices.map(i => `<option value="${i.id}">${i.id} - ${i.customerName} ($${i.total})</option>`).join("");
+  let invoiceOptions = invoices.map(i => `<option value="${i.id}">${i.id} - ${i.customerName} (${formatMoney(i.total)})</option>`).join("");
 
   container.innerHTML = `
     <div class="card animate-fade-in">
@@ -901,7 +1076,7 @@ function renderReturnForm(container) {
               <td style="font-family: monospace;">${item.sku}</td>
               <td><strong>${item.name}</strong></td>
               <td>${item.qty} ${item.uom}</td>
-              <td>$${item.price.toFixed(2)}</td>
+              <td>${formatMoney(item.price)}</td>
               <td>
                 <input type="number" class="form-control sr-qty" min="0" max="${item.qty}" value="0" style="max-width: 100px;" />
               </td>
@@ -1137,30 +1312,47 @@ function renderInvoiceDetails(container, invoiceId) {
                 <td><strong>${item.name}</strong></td>
                 <td>${item.uom}</td>
                 <td>${item.qty}</td>
-                <td>$${item.price.toFixed(2)}</td>
-                <td style="font-weight: 700;">$${(item.qty * item.price).toFixed(2)}</td>
+                <td>${formatMoney(item.price)}</td>
+                <td style="font-weight: 700;">${formatMoney(item.qty * item.price)}</td>
               </tr>
             `).join("")}
           </tbody>
         </table>
       </div>
 
-      <div style="max-width: 300px; margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem;">
+      <div style="max-width: 340px; margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem;">
         <div style="display: flex; justify-content: space-between;">
           <span class="text-secondary">Subtotal:</span>
-          <span>$${si.subtotal.toFixed(2)}</span>
+          <span>${formatMoney(si.subtotal)}</span>
         </div>
         <div style="display: flex; justify-content: space-between;">
-          <span class="text-secondary">VAT Tax (12%):</span>
-          <span>$${si.tax.toFixed(2)}</span>
+          <span class="text-secondary">VAT Tax:</span>
+          <span>${formatMoney(si.tax)}</span>
         </div>
         <div style="display: flex; justify-content: space-between;">
-          <span class="text-secondary">Withholding (2%):</span>
-          <span class="text-danger">-$${si.withholding.toFixed(2)}</span>
+          <span class="text-secondary">Withholding Tax:</span>
+          <span class="text-danger">-${formatMoney(si.withholding)}</span>
         </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span class="text-secondary">Sales GL Account:</span>
+          <span style="font-family:monospace;">${si.salesAccountCode || '4100'}</span>
+        </div>
+        ${(si.otherCharges || []).length > 0 ? '<div style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:2px;">Other Charges:</div>' + (si.otherCharges || []).map((ch: any) => {
+        const a = Number(ch.amount) || 0;
+        const v = Number(ch.vatRate) || 0;
+        const b = ch.baseOn || 'net';
+        const base = b === 'gross' ? a / (1 + v / 100) : a;
+        const total = parseFloat((base + (base * v / 100)).toFixed(2));
+        const tag = ch.isVat ? ' [VAT]' : ch.isWht ? ' [WHT]' : '';
+        return `
+        <div style="display: flex; justify-content: space-between; font-size:0.8rem;">
+          <span class="text-secondary">${ch.accountCode}${tag}${ch.vatRate ? ' ' + ch.vatRate + '%' : ''} ${ch.baseOn || 'net'}:</span>
+          <span>${formatMoney(total)}</span>
+        </div>`;
+        }).join("") : ''}
         <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; font-size: 1.1rem; font-weight: 700;">
           <span>Net Total:</span>
-          <span class="text-success">$${si.total.toFixed(2)}</span>
+          <span class="text-success">${formatMoney(si.total)}</span>
         </div>
       </div>
     </div>

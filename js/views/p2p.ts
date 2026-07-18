@@ -1,5 +1,6 @@
 // JMIT ERP - Procurement & Procure-to-Pay (P2P) Full-Page Flow View Module
 import { store } from "../store";
+import { formatMoney } from "../utils";
 
 export function renderP2P(container, pathParts) {
   const subPage = pathParts[1] || "purchase-orders";
@@ -73,7 +74,7 @@ function renderPurchaseOrdersList(container) {
                   <td><strong>${po.vendorName}</strong></td>
                   <td>${po.date}</td>
                   <td><span class="badge badge-draft">${po.currency}</span> (Rate: ${po.rate})</td>
-                  <td style="font-weight: 700;">$${po.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                  <td style="font-weight: 700;">${formatMoney(po.total)}</td>
                   <td>
                     <span class="badge ${po.status === 'Paid' ? 'badge-success' : po.status === 'Approved' || po.status === 'Received' || po.status === 'Billed' ? 'badge-pending' : po.status === 'Draft' ? 'badge-draft' : 'badge-danger'}">${po.status}</span>
                   </td>
@@ -97,7 +98,7 @@ function renderPurchaseOrderForm(container) {
   const activeCompany = store.getActiveCompany();
 
   let vendorOptions = vendors.map(v => `<option value="${v.id}">${v.name} (TIN: ${v.taxId})</option>`).join("");
-  let itemOptions = items.map(i => `<option value="${i.id}">${i.name} ($${i.cost})</option>`).join("");
+  let itemOptions = items.map(i => `<option value="${i.id}">${i.name} (${formatMoney(i.cost)})</option>`).join("");
 
   container.innerHTML = `
     <div class="card animate-fade-in">
@@ -224,7 +225,7 @@ function renderPurchaseOrderForm(container) {
       }
     });
 
-    container.querySelector("#po-total").textContent = `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    container.querySelector("#po-total").textContent = `${formatMoney(total)}`;
   };
 
   const addLine = () => {
@@ -265,7 +266,7 @@ function renderPurchaseOrderForm(container) {
     itemSel.addEventListener("change", () => {
       const item = store.getItem((itemSel as HTMLSelectElement).value);
       if (item) {
-        (costInp as HTMLInputElement).value = `$${item.cost.toFixed(2)}`;
+        (costInp as HTMLInputElement).value = `${formatMoney(item.cost)}`;
       }
       updateTotals();
     });
@@ -525,7 +526,7 @@ function renderPurchaseInvoicesList(container) {
                 <td style="font-family: monospace;">${pi.purchaseOrderId}</td>
                 <td><strong>${pi.vendorName}</strong></td>
                 <td>${pi.date}</td>
-                <td style="font-weight: 700;">$${pi.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-weight: 700;">${formatMoney(pi.total)}</td>
                 <td>
                   <span class="badge ${pi.status === 'Paid' ? 'badge-success' : pi.status === 'Unpaid' ? 'badge-pending' : 'badge-draft'}">${pi.status}</span>
                 </td>
@@ -599,8 +600,8 @@ function renderPurchaseInvoiceForm(container) {
                     <td style="font-family:monospace;">${li.sku}</td>
                     <td>${item ? item.name : li.itemId}</td>
                     <td>${li.acceptedQty} ${li.uom}</td>
-                    <td>$${cost.toFixed(2)}</td>
-                    <td style="font-weight:700;">$${(li.acceptedQty * cost).toFixed(2)}</td>
+                    <td>${formatMoney(cost)}</td>
+                    <td style="font-weight:700;">${formatMoney(li.acceptedQty * cost)}</td>
                   </tr>
                 `;
               }).join("") : po.items.map(item => `
@@ -608,8 +609,8 @@ function renderPurchaseInvoiceForm(container) {
                     <td style="font-family:monospace;">${item.sku}</td>
                     <td>${item.name}</td>
                     <td>${item.qty} ${item.uom}</td>
-                    <td>$${item.cost.toFixed(2)}</td>
-                    <td style="font-weight:700;">$${(item.qty * item.cost).toFixed(2)}</td>
+                    <td>${formatMoney(item.cost)}</td>
+                    <td style="font-weight:700;">${formatMoney(item.qty * item.cost)}</td>
                   </tr>
               `)}
             </tbody>
@@ -619,11 +620,11 @@ function renderPurchaseInvoiceForm(container) {
         <div style="margin-top: 20px; border: 1px solid var(--border-color); padding: 14px; border-radius: var(--radius-sm); background-color: rgba(255,255,255,0.01);">
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span>Gross billed items:</span>
-            <strong>$${po.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+            <strong>${formatMoney(po.total)}</strong>
           </div>
           <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; font-size: 1.1rem; font-weight: 700;">
             <span>Total Accounts Payable Booked:</span>
-            <span class="text-warning">$${po.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+            <span class="text-warning">${formatMoney(po.total)}</span>
           </div>
         </div>
 
@@ -682,7 +683,7 @@ function renderPurchaseReturnsList(container) {
                 <td style="font-family: monospace;">${pr.purchaseInvoiceId}</td>
                 <td><strong>${pr.vendorName}</strong></td>
                 <td>${pr.date}</td>
-                <td style="font-weight: 700;">$${pr.totalReturn.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-weight: 700;">${formatMoney(pr.totalReturn)}</td>
                 <td><span class="badge badge-success">${pr.status}</span></td>
               </tr>
             `).join("")}
@@ -701,7 +702,7 @@ function renderPurchaseReturnForm(container) {
   const invoices = store.getPurchaseInvoices();
   const warehouses = store.getWarehouses();
 
-  let invoiceOptions = invoices.map(i => `<option value="${i.id}">${i.id} - ${i.vendorName} ($${i.total})</option>`).join("");
+  let invoiceOptions = invoices.map(i => `<option value="${i.id}">${i.id} - ${i.vendorName} (${formatMoney(i.total)})</option>`).join("");
 
   container.innerHTML = `
     <div class="card animate-fade-in">
@@ -764,7 +765,7 @@ function renderPurchaseReturnForm(container) {
               <td style="font-family: monospace;">${item.sku}</td>
               <td><strong>${item.name}</strong></td>
               <td>${item.qty} ${item.uom}</td>
-              <td>$${item.cost.toFixed(2)}</td>
+              <td>${formatMoney(item.cost)}</td>
               <td>
                 <input type="number" class="form-control pr-qty" min="0" max="${item.qty}" value="0" style="max-width: 100px;" />
               </td>
@@ -891,8 +892,8 @@ function renderPurchaseOrderDetails(container, orderId) {
                 <td><strong>${item.name}</strong></td>
                 <td>${item.uom}</td>
                 <td>${item.qty}</td>
-                <td>$${item.cost.toFixed(2)}</td>
-                <td style="font-weight: 700;">$${(item.qty * item.cost).toFixed(2)}</td>
+                <td>${formatMoney(item.cost)}</td>
+                <td style="font-weight: 700;">${formatMoney(item.qty * item.cost)}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -902,7 +903,7 @@ function renderPurchaseOrderDetails(container, orderId) {
       <div style="max-width: 300px; margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem;">
         <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; font-size: 1.1rem; font-weight: 700;">
           <span>Net Total Cost:</span>
-          <span class="text-success">$${po.total.toFixed(2)}</span>
+          <span class="text-success">${formatMoney(po.total)}</span>
         </div>
       </div>
     </div>
@@ -1123,8 +1124,8 @@ function renderPurchaseInvoiceDetails(container, invoiceId) {
                 <td><strong>${item.name}</strong></td>
                 <td>${item.uom}</td>
                 <td>${item.qty}</td>
-                <td>$${item.cost.toFixed(2)}</td>
-                <td style="font-weight: 700;">$${(item.qty * item.cost).toFixed(2)}</td>
+                <td>${formatMoney(item.cost)}</td>
+                <td style="font-weight: 700;">${formatMoney(item.qty * item.cost)}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -1134,7 +1135,7 @@ function renderPurchaseInvoiceDetails(container, invoiceId) {
       <div style="max-width: 300px; margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem;">
         <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 8px; font-size: 1.1rem; font-weight: 700;">
           <span>Net Total Cost:</span>
-          <span class="text-success">$${pi.total.toFixed(2)}</span>
+          <span class="text-success">${formatMoney(pi.total)}</span>
         </div>
       </div>
     </div>

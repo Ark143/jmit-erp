@@ -1,5 +1,6 @@
 // JMIT ERP - Chart of Accounts & Journal Ledger View Module (Phase 2)
 import { store } from "../store";
+import { formatMoney } from "../utils";
 import { renderFinance } from "./finance";
 
 export function renderAccounting(container, pathParts) {
@@ -80,7 +81,7 @@ function renderCOATree(container) {
                   <span style="font-size:0.7rem; color:var(--text-muted); margin-left: 10px;">(${acct.type})</span>
                 </div>
                 <div style="font-weight: 700; font-size: 0.9rem;">
-                  $${acct.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${formatMoney(acct.balance)}
                 </div>
               </div>
               ${buildTreeHtml(acct.code)}
@@ -231,9 +232,9 @@ function renderJournalEntriesList(container) {
                 const acct = store.getAccount(l.code);
                 const name = acct ? acct.name : l.code;
                 if (l.debit > 0) {
-                  return `<div style="padding: 2px 0;">Dr. ${name} (${l.code}): <strong>$${l.debit.toFixed(2)}</strong></div>`;
+                  return `<div style="padding: 2px 0;">Dr. ${name} (${l.code}): <strong>${formatMoney(l.debit)}</strong></div>`;
                 } else {
-                  return `<div style="padding: 2px 0; padding-left: 20px;">Cr. ${name} (${l.code}): <strong>$${l.credit.toFixed(2)}</strong></div>`;
+                  return `<div style="padding: 2px 0; padding-left: 20px;">Cr. ${name} (${l.code}): <strong>${formatMoney(l.credit)}</strong></div>`;
                 }
               }).join("");
 
@@ -244,8 +245,8 @@ function renderJournalEntriesList(container) {
                   <td style="vertical-align: top;">
                     <strong style="color: var(--text-primary);">${je.reference}</strong>
                   </td>
-                  <td style="font-weight: 600; color: var(--text-primary); vertical-align: top;">$${totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                  <td style="font-weight: 600; color: var(--text-primary); vertical-align: top;">$${totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                  <td style="font-weight: 600; color: var(--text-primary); vertical-align: top;">${formatMoney(totalDebits)}</td>
+                  <td style="font-weight: 600; color: var(--text-primary); vertical-align: top;">${formatMoney(totalDebits)}</td>
                   <td>
                     <div style="font-size: 0.8rem; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); color: var(--text-secondary); max-width: 380px; white-space: normal;">
                       ${splitsHtml}
@@ -331,8 +332,8 @@ function renderJournalEntryForm(container) {
       totalCredits += creditVal;
     });
 
-    container.querySelector("#je-total-debit").textContent = `$${totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    container.querySelector("#je-total-credit").textContent = `$${totalCredits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    container.querySelector("#je-total-debit").textContent = `${formatMoney(totalDebits)}`;
+    container.querySelector("#je-total-credit").textContent = `${formatMoney(totalCredits)}`;
 
     const diff = Math.abs(totalDebits - totalCredits);
     if (diff < 0.01 && totalDebits > 0) {
@@ -341,7 +342,7 @@ function renderJournalEntryForm(container) {
       submitBtn.disabled = false;
     } else {
       warningLabel.className = "text-danger";
-      warningLabel.textContent = `Unbalanced: Difference $${diff.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+      warningLabel.textContent = `Unbalanced: Difference ${formatMoney(diff)}`;
       submitBtn.disabled = true;
     }
   };

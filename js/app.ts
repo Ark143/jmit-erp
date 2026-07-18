@@ -1,5 +1,6 @@
 // JMIT ERP - Application Orchestrator, Multi-Page Router & Security Guard (Mega Menu Edition)
 import { store } from "./store";
+import { formatMoney } from "./utils";
 import { renderDashboard } from "./views/dashboard";
 import { renderO2C } from "./views/o2c";
 import { renderP2P } from "./views/p2p";
@@ -308,12 +309,7 @@ function updateHeaderKPIs() {
   const cashAcct = store.getAccount(store.getSettings().glMappings.cashAccount);
   const cashVal: number = cashAcct ? cashAcct.balance : 0;
   
-  const currencySymbol = activeCompany && activeCompany.currency === "PHP" ? "₱" : "$";
-  const displayCash = activeCompany && activeCompany.currency === "PHP" 
-    ? (cashVal * store.getSettings().exchangeRates.PHP) 
-    : cashVal;
-
-  headerCashEl.textContent = `${currencySymbol}${displayCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+  headerCashEl.textContent = formatMoney(cashVal);
 
   const totalStock = store.getItems().reduce((sum, item) => {
     const warehouseStocks = Object.values(item.stocks || {});

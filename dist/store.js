@@ -1,4 +1,4 @@
-// JMIT ERP - Central State Store (Phase 3 CRUD Workflow Approvals & RBAC Master)
+import { formatMoney } from "./utils.js"; // JMIT ERP - Central State Store (Phase 3 CRUD Workflow Approvals & RBAC Master)
 const DEFAULT_STATE = {
     // System Configurations
     settings: {
@@ -27,6 +27,7 @@ const DEFAULT_STATE = {
             arAccount: "1200",
             apAccount: "2010",
             whtAssetAccount: "1210",
+            inputVatAccount: "1220",
             inventoryAccount: "1300",
             taxAccount: "2200",
             whtLiabilityAccount: "2220",
@@ -34,7 +35,8 @@ const DEFAULT_STATE = {
             cogsAccount: "5100",
             opexAccount: "6010",
             deprExpenseAccount: "6100",
-            accumDeprAccount: "1810"
+            accumDeprAccount: "1810",
+            defaultOtherChargesAccount: "6010"
         },
         workflowRequirements: {
             soApproval: true,
@@ -166,6 +168,7 @@ const DEFAULT_STATE = {
         { code: "1010", name: "Cash & Cash Equivalents", type: "Asset", parentCode: "1000", balance: 50938.00 },
         { code: "1200", name: "Accounts Receivable", type: "Asset", parentCode: "1000", balance: 0 },
         { code: "1210", name: "Withholding Tax Receivable", type: "Asset", parentCode: "1000", balance: 0 },
+        { code: "1220", name: "Input VAT Receivable", type: "Asset", parentCode: "1000", balance: 0 },
         { code: "1300", name: "Inventory Asset", type: "Asset", parentCode: "1000", balance: 46580.00 },
         { code: "1800", name: "Fixed Property & Equipment", type: "Asset", parentCode: "1000", balance: 24000.00 },
         { code: "1810", name: "Accumulated Depreciation", type: "Asset", parentCode: "1000", balance: -2000.00 },
@@ -191,17 +194,17 @@ const DEFAULT_STATE = {
     ],
     // Multi-Step Document Chains
     salesOrders: [
-        { id: "SO-2026-001", companyId: "CMP001", customerId: "CST001", customerName: "Acme Corporation", date: "2026-07-09", items: [{ itemId: "ITM001", sku: "JMIT-1001-HW", name: "Enterprise Laptop Pro", qty: 2, price: 1200, uom: "pcs" }], currency: "USD", rate: 1.0, subtotal: 2400, tax: 288, withholding: 48, total: 2640, status: "Closed" }
+        { id: "SO-2026-001", companyId: "CMP001", customerId: "CST001", customerName: "Acme Corporation", date: "2026-07-09", items: [{ itemId: "ITM001", sku: "JMIT-1001-HW", name: "Enterprise Laptop Pro", qty: 2, price: 1200, uom: "pcs" }], currency: "PHP", rate: 1.0, subtotal: 2400, tax: 288, withholding: 48, total: 2640, salesAccountCode: "4100", otherCharges: [], status: "Closed" }
     ],
     deliveries: [
         { id: "DN-2026-001", salesOrderId: "SO-2026-001", companyId: "CMP001", customerId: "CST001", customerName: "Acme Corporation", date: "2026-07-10", items: [{ itemId: "ITM001", sku: "JMIT-1001-HW", qty: 2, uom: "pcs" }], warehouseId: "WH001", status: "Submitted" }
     ],
     salesInvoices: [
-        { id: "SI-2026-001", salesOrderId: "SO-2026-001", deliveryNoteId: "DN-2026-001", companyId: "CMP001", customerId: "CST001", customerName: "Acme Corporation", date: "2026-07-10", items: [{ itemId: "ITM001", sku: "JMIT-1001-HW", qty: 2, price: 1200, uom: "pcs" }], subtotal: 2400, tax: 288, withholding: 48, total: 2640, status: "Paid" }
+        { id: "SI-2026-001", salesOrderId: "SO-2026-001", deliveryNoteId: "DN-2026-001", companyId: "CMP001", customerId: "CST001", customerName: "Acme Corporation", date: "2026-07-10", items: [{ itemId: "ITM001", sku: "JMIT-1001-HW", qty: 2, price: 1200, uom: "pcs" }], subtotal: 2400, tax: 288, withholding: 48, total: 2640, salesAccountCode: "4100", otherCharges: [], status: "Paid" }
     ],
     salesReturns: [],
     purchaseOrders: [
-        { id: "PO-2026-001", companyId: "CMP001", vendorId: "VND001", vendorName: "Global Tech Distributors", date: "2026-07-07", items: [{ itemId: "ITM004", sku: "JMIT-1004-HW", name: "4K UltraWide Monitor", qty: 5, cost: 350, uom: "pcs" }], currency: "USD", rate: 1.0, total: 1750, status: "Paid" }
+        { id: "PO-2026-001", companyId: "CMP001", vendorId: "VND001", vendorName: "Global Tech Distributors", date: "2026-07-07", items: [{ itemId: "ITM004", sku: "JMIT-1004-HW", name: "4K UltraWide Monitor", qty: 5, cost: 350, uom: "pcs" }], currency: "PHP", rate: 1.0, total: 1750, status: "Paid" }
     ],
     goodsReceipts: [
         { id: "GRN-2026-001", purchaseOrderId: "PO-2026-001", companyId: "CMP001", vendorId: "VND001", vendorName: "Global Tech Distributors", date: "2026-07-08", items: [{ itemId: "ITM004", sku: "JMIT-1004-HW", acceptedQty: 5, rejectedQty: 0, uom: "pcs" }], warehouseId: "WH001", status: "Submitted" }
@@ -212,8 +215,8 @@ const DEFAULT_STATE = {
     purchaseReturns: [],
     // Treasury Operations (Receive / Pay)
     payments: [
-        { id: "PAY-2026-001", type: "Receive", companyId: "CMP001", partnerId: "CST001", partnerName: "Acme Corporation", reference: "Invoice SI-2026-001", date: "2026-07-11", amount: 2640, currency: "USD", rate: 1.0, status: "Posted" },
-        { id: "PAY-2026-002", type: "Pay", companyId: "CMP001", partnerId: "VND001", partnerName: "Global Tech Distributors", reference: "Bill PI-2026-001", date: "2026-07-09", amount: 1750, currency: "USD", rate: 1.0, status: "Posted" }
+        { id: "PAY-2026-001", type: "Receive", companyId: "CMP001", partnerId: "CST001", partnerName: "Acme Corporation", reference: "Invoice SI-2026-001", date: "2026-07-11", amount: 2640, currency: "PHP", rate: 1.0, status: "Posted" },
+        { id: "PAY-2026-002", type: "Pay", companyId: "CMP001", partnerId: "VND001", partnerName: "Global Tech Distributors", reference: "Bill PI-2026-001", date: "2026-07-09", amount: 1750, currency: "PHP", rate: 1.0, status: "Posted" }
     ],
     // Stock Entry adjustments
     stockEntries: [
@@ -765,10 +768,38 @@ class Store {
             const prod = this.getItem(l.itemId);
             subtotal += prod.price * l.qty;
         });
-        const tax = parseFloat((subtotal * (cust ? cust.taxRate : 0.12)).toFixed(2));
-        const withholding = parseFloat((subtotal * (cust ? cust.whtRate : 0.02)).toFixed(2));
-        const total = parseFloat((subtotal + tax - withholding).toFixed(2));
+        const taxFromCharges = (soData.otherCharges || []).reduce((sum, ch) => {
+            if (!ch.isVat)
+                return sum;
+            const amt = Number(ch.amount) || 0;
+            const vatPct = Number(ch.vatRate) || 0;
+            const baseOn = ch.baseOn || 'net';
+            const baseAmt = baseOn === 'gross' ? amt / (1 + vatPct / 100) : amt;
+            return sum + parseFloat((baseAmt + (baseAmt * vatPct / 100)).toFixed(2));
+        }, 0);
+        const whtFromCharges = (soData.otherCharges || []).reduce((sum, ch) => {
+            if (!ch.isWht)
+                return sum;
+            const amt = Number(ch.amount) || 0;
+            const vatPct = Number(ch.vatRate) || 0;
+            const baseOn = ch.baseOn || 'net';
+            const baseAmt = baseOn === 'gross' ? amt / (1 + vatPct / 100) : amt;
+            return sum + parseFloat((baseAmt + (baseAmt * vatPct / 100)).toFixed(2));
+        }, 0);
+        const tax = (Number(soData.taxAmount) || 0) + taxFromCharges;
+        const withholding = (Number(soData.whtAmount) || 0) + whtFromCharges;
+        const otherCharges = (soData.otherCharges || []).reduce((sum, ch) => {
+            if (ch.isVat || ch.isWht)
+                return sum;
+            const amt = Number(ch.amount) || 0;
+            const vatPct = Number(ch.vatRate) || 0;
+            const baseOn = ch.baseOn || 'net';
+            const baseAmt = baseOn === 'gross' ? amt / (1 + vatPct / 100) : amt;
+            return sum + parseFloat((baseAmt + (baseAmt * vatPct / 100)).toFixed(2));
+        }, 0);
+        const total = parseFloat((subtotal + tax - withholding + otherCharges).toFixed(2));
         const reqs = this.state.settings.workflowRequirements || {};
+        const salesAccountCode = soData.salesAccountCode || this.state.settings.glMappings.salesAccount;
         const newSo = {
             id,
             companyId: soData.companyId || this.state.settings.activeCompany,
@@ -776,12 +807,14 @@ class Store {
             customerName: cust ? cust.name : "Unknown",
             date,
             items,
-            currency: soData.currency || "USD",
+            currency: soData.currency || "PHP",
             rate: Number(soData.rate) || 1.0,
             subtotal,
             tax,
             withholding,
             total,
+            salesAccountCode,
+            otherCharges: soData.otherCharges || [],
             status: (reqs.soApproval === false) ? "Approved" : "Draft"
         };
         this.state.salesOrders.push(newSo);
@@ -889,6 +922,7 @@ class Store {
         if (!so)
             throw new Error("Reference Sales Order not found");
         const reqs = this.state.settings.workflowRequirements || {};
+        const otherChargesTotal = (so.otherCharges || []).reduce((sum, ch) => sum + Number(ch.amount || 0), 0);
         const newSi = {
             id,
             salesOrderId: so.id,
@@ -902,6 +936,8 @@ class Store {
             tax: so.tax,
             withholding: so.withholding,
             total: so.total,
+            salesAccountCode: so.salesAccountCode || this.state.settings.glMappings.salesAccount,
+            otherCharges: so.otherCharges || [],
             status: (reqs.siSubmission === false) ? "Unpaid" : "Draft"
         };
         if (reqs.siSubmission === false) {
@@ -923,7 +959,7 @@ class Store {
                 lines: [
                     { code: maps.arAccount, debit: baseTotal, credit: 0 },
                     { code: maps.whtAssetAccount, debit: baseWht, credit: 0 },
-                    { code: maps.salesAccount, debit: 0, credit: baseSubtotal },
+                    { code: so.salesAccountCode || maps.salesAccount, debit: 0, credit: baseSubtotal },
                     { code: maps.taxAccount, debit: 0, credit: baseTax },
                     { code: maps.cogsAccount, debit: totalCogs, credit: 0 },
                     { code: maps.inventoryAccount, debit: 0, credit: totalCogs }
@@ -962,7 +998,7 @@ class Store {
         const jeLines = [
             { code: maps.arAccount, debit: baseTotal, credit: 0 },
             { code: maps.whtAssetAccount, debit: baseWht, credit: 0 },
-            { code: maps.salesAccount, debit: 0, credit: baseSubtotal },
+            { code: si.salesAccountCode || maps.salesAccount, debit: 0, credit: baseSubtotal },
             { code: maps.taxAccount, debit: 0, credit: baseTax },
             { code: maps.cogsAccount, debit: totalCogs, credit: 0 },
             { code: maps.inventoryAccount, debit: 0, credit: totalCogs }
@@ -1003,14 +1039,14 @@ class Store {
                 returnCogs += item.cost * line.qty;
         });
         const ratio = srData.totalReturn / si.total;
-        const revRev = parseFloat((this.convertToBase(si.subtotal, "USD") * ratio).toFixed(2));
-        const revTax = parseFloat((this.convertToBase(si.tax, "USD") * ratio).toFixed(2));
-        const revWht = parseFloat((this.convertToBase(si.withholding, "USD") * ratio).toFixed(2));
-        const revTotal = parseFloat((this.convertToBase(si.total, "USD") * ratio).toFixed(2));
+        const revRev = parseFloat((this.convertToBase(si.subtotal, si.currency) * ratio).toFixed(2));
+        const revTax = parseFloat((this.convertToBase(si.tax, si.currency) * ratio).toFixed(2));
+        const revWht = parseFloat((this.convertToBase(si.withholding, si.currency) * ratio).toFixed(2));
+        const revTotal = parseFloat((this.convertToBase(si.total, si.currency) * ratio).toFixed(2));
         const maps = this.state.settings.glMappings;
         const jeId = "JE-2026-" + String(this.state.journalEntries.length + 1).padStart(4, "0");
         const jeLines = [
-            { code: maps.salesAccount, debit: revRev, credit: 0 },
+            { code: si.salesAccountCode || maps.salesAccount, debit: revRev, credit: 0 },
             { code: maps.taxAccount, debit: revTax, credit: 0 },
             { code: maps.arAccount, debit: 0, credit: revTotal },
             { code: maps.whtAssetAccount, debit: 0, credit: revWht },
@@ -1068,7 +1104,7 @@ class Store {
             vendorName: vend ? vend.name : "Unknown",
             date,
             items,
-            currency: poData.currency || "USD",
+            currency: poData.currency || "PHP",
             rate: Number(poData.rate) || 1.0,
             total,
             status: (reqs.poApproval === false) ? "Approved" : "Draft"
@@ -1279,7 +1315,7 @@ class Store {
             }
         });
         const maps = this.state.settings.glMappings;
-        const baseReturn = this.convertToBase(prData.totalReturn, "USD");
+        const baseReturn = this.convertToBase(prData.totalReturn, prData.currency);
         const jeId = "JE-2026-" + String(this.state.journalEntries.length + 1).padStart(4, "0");
         const jeLines = [
             { code: maps.apAccount, debit: baseReturn, credit: 0 },
@@ -1334,7 +1370,7 @@ class Store {
             reference: payData.reference,
             date,
             amount: payData.amount,
-            currency: payData.currency || "USD",
+            currency: payData.currency || "PHP",
             rate: Number(payData.rate) || 1.0,
             status: (reqs.paymentSubmission === false) ? "Posted" : "Draft"
         };
@@ -1659,7 +1695,7 @@ class Store {
                 totalCredit += Number(l.credit) || 0;
             });
             if (Math.abs(totalDebit - totalCredit) > 0.01) {
-                throw new Error(`Unbalanced Entry: Debits ($${totalDebit.toFixed(2)}) must equal Credits ($${totalCredit.toFixed(2)})`);
+                throw new Error(`Unbalanced Entry: Debits (${formatMoney(totalDebit)}) must equal Credits (${formatMoney(totalCredit)})`);
             }
             lines.forEach(l => {
                 const acct = this.getAccount(l.code);
@@ -1694,7 +1730,7 @@ class Store {
             totalCredit += Number(l.credit) || 0;
         });
         if (Math.abs(totalDebit - totalCredit) > 0.01) {
-            throw new Error(`Unbalanced Entry: Debits ($${totalDebit.toFixed(2)}) must equal Credits ($${totalCredit.toFixed(2)})`);
+            throw new Error(`Unbalanced Entry: Debits (${formatMoney(totalDebit)}) must equal Credits (${formatMoney(totalCredit)})`);
         }
         je.lines.forEach(l => {
             const acct = this.getAccount(l.code);
@@ -1720,7 +1756,7 @@ class Store {
             totalCredit += Number(l.credit) || 0;
         });
         if (Math.abs(totalDebit - totalCredit) > 0.01) {
-            throw new Error(`Unbalanced Entry: Debits ($${totalDebit.toFixed(2)}) must equal Credits ($${totalCredit.toFixed(2)})`);
+            throw new Error(`Unbalanced Entry: Debits (${formatMoney(totalDebit)}) must equal Credits (${formatMoney(totalCredit)})`);
         }
         entry.lines.forEach(l => {
             const acct = this.getAccount(l.code);

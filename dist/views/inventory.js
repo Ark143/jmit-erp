@@ -1,5 +1,6 @@
 // JMIT ERP - Inventory, Warehouses & Stock Entries Module View (Phase 2)
 import { store } from "../store.js";
+import { formatMoney } from "../utils.js";
 export function renderInventory(container, pathParts) {
     const subPage = pathParts[1] || "items";
     const action = pathParts[2];
@@ -248,8 +249,8 @@ function renderItemsCatalog(container) {
                   <td><strong>${item.name}</strong></td>
                   <td>${item.category}</td>
                   <td><span class="badge badge-draft">${item.uom}</span></td>
-                  <td>$${item.cost.toFixed(2)}</td>
-                  <td>$${item.price.toFixed(2)}</td>
+                  <td>${formatMoney(item.cost)}</td>
+                  <td>${formatMoney(item.price)}</td>
                   ${warehouses.map(w => `
                     <td style="font-weight: 600; color: var(--text-primary);">${item.stocks[w.id] || 0}</td>
                   `).join("")}

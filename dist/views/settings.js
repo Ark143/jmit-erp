@@ -187,8 +187,8 @@ function renderConfig(container) {
           </div>
           <form id="gl-mapping-form" style="display: flex; flex-direction: column; gap: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 6px;">
-              <strong>Accounting Event Trigger</strong>
-              <strong>Target General Ledger GL</strong>
+              <strong>Accounting Event / Default</strong>
+              <strong>Target General Ledger GL / Value</strong>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 10px;">
@@ -204,18 +204,32 @@ function renderConfig(container) {
               <span style="font-size: 0.8rem; color: var(--text-secondary);">Inventory Asset</span>
               <select name="inventoryAccount" class="form-control">${accountOptions(maps.inventoryAccount)}</select>
 
-              <span style="font-size: 0.8rem; color: var(--text-secondary);">VAT Payable (Tax)</span>
-              <select name="taxAccount" class="form-control">${accountOptions(maps.taxAccount)}</select>
-
               <span style="font-size: 0.8rem; color: var(--text-secondary);">Sales Revenue</span>
               <select name="salesAccount" class="form-control">${accountOptions(maps.salesAccount)}</select>
 
               <span style="font-size: 0.8rem; color: var(--text-secondary);">Cost of Goods Sold</span>
               <select name="cogsAccount" class="form-control">${accountOptions(maps.cogsAccount)}</select>
 
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">VAT Payable (Output Tax)</span>
+              <select name="taxAccount" class="form-control">${accountOptions(maps.taxAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">WHT Receivable (Asset)</span>
+              <select name="whtAssetAccount" class="form-control">${accountOptions(maps.whtAssetAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">WHT Payable (Liability)</span>
+              <select name="whtLiabilityAccount" class="form-control">${accountOptions(maps.whtLiabilityAccount)}</select>
+
               <span style="font-size: 0.8rem; color: var(--text-secondary);">Depreciation Expense</span>
               <select name="deprExpenseAccount" class="form-control">${accountOptions(maps.deprExpenseAccount)}</select>
+
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Default Other Charges Account</span>
+              <select name="defaultOtherChargesAccount" class="form-control">${accountOptions(maps.defaultOtherChargesAccount)}</select>
             </div>
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 8px;">
+              <span style="font-size: 0.75rem; color: var(--text-secondary);">VAT and WHT are entered manually per transaction. Configure GL accounts above.</span>
+            </div>
+
             <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 10px;">Save Mappings</button>
           </form>
         </div>

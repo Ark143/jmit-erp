@@ -1,5 +1,6 @@
 // JMIT ERP - Treasury Payments & Fixed Assets View Module (Phase 2)
 import { store } from "../store";
+import { formatMoney } from "../utils";
 
 export function renderFinance(container, pathParts) {
   const subRoute = pathParts[1] || "payments";
@@ -77,7 +78,7 @@ function renderPaymentsList(container) {
                 <td>${p.date}</td>
                 <td><strong>${p.partnerName}</strong></td>
                 <td>${p.reference}</td>
-                <td style="font-weight: 700;">$${p.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-weight: 700;">${formatMoney(p.amount)}</td>
                 <td><span class="badge badge-draft">${p.currency}</span> (Rate: ${p.rate})</td>
               </tr>
             `).join("")}
@@ -103,7 +104,7 @@ function renderPaymentForm(container) {
   const activeCompany = store.getActiveCompany();
 
   let partnerOptions = partners.map(p => `<option value="${p.id}">${p.name} (TIN: ${p.taxId})</option>`).join("");
-  let invoiceOptions = invoices.map(i => `<option value="${i.id}">${i.id} - ${i.customerName || i.vendorName} (Due: $${i.total})</option>`).join("");
+  let invoiceOptions = invoices.map(i => `<option value="${i.id}">${i.id} - ${i.customerName || i.vendorName} (Due: ${formatMoney(i.total)})</option>`).join("");
 
   container.innerHTML = `
     <div class="card animate-fade-in" style="max-width: 600px; margin: 0 auto;">
@@ -272,11 +273,11 @@ function renderFixedAssets(container) {
                     <td style="font-family: monospace; font-weight: 700; color: var(--color-primary);">${a.id}</td>
                     <td><strong>${a.name}</strong></td>
                     <td>${a.purchaseDate}</td>
-                    <td>$${a.cost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td>${formatMoney(a.cost)}</td>
                     <td>${a.usefulLife} years</td>
-                    <td style="font-weight:600; color:var(--color-p2p);">$${monthlyDepr.toFixed(2)}</td>
-                    <td class="text-danger">-$${a.accumDepreciation.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td style="font-weight: 700; color: var(--color-o2c);">$${netBookValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style="font-weight:600; color:var(--color-p2p);">${formatMoney(monthlyDepr)}</td>
+                    <td class="text-danger">-${formatMoney(a.accumDepreciation)}</td>
+                    <td style="font-weight: 700; color: var(--color-o2c);">${formatMoney(netBookValue)}</td>
                     <td>
                       ${a.active ? '<span class="badge badge-success">Capitalized</span>' : '<span class="badge badge-danger">Retired</span>'}
                     </td>
@@ -383,7 +384,7 @@ function renderFixedAssets(container) {
       try {
         const totalDepr = store.runDepreciation(date);
         if (totalDepr > 0) {
-          window.showToast(`Depreciation execution complete! Total posting: $${totalDepr.toFixed(2)}. Adjustments ledger saved.`, "success");
+          window.showToast(`Depreciation execution complete! Total posting: ${formatMoney(totalDepr)}. Adjustments ledger saved.`, "success");
         } else {
           window.showToast("All active assets are already fully depreciated.", "warning");
         }
@@ -412,7 +413,7 @@ function renderFixedAssets(container) {
 
     try {
       store.addFixedAsset(asset);
-      window.showToast(`Asset "${asset.name}" capitalized at cost $${asset.cost.toFixed(2)}. GL capitalized entry posted.`, "success");
+      window.showToast(`Asset "${asset.name}" capitalized at cost ${formatMoney(asset.cost)}. GL capitalized entry posted.`, "success");
       renderFixedAssets(container);
     } catch (err) {
       window.showToast(err.message, "danger");
@@ -435,9 +436,9 @@ function renderFixedAssets(container) {
         <tr>
           <td>${s.period}</td>
           <td style="font-family:monospace; font-size:0.8rem;">${s.yearMonth}</td>
-          <td style="font-weight:600; color:var(--color-p2p);">$${s.deprAmount.toFixed(2)}</td>
-          <td class="text-danger">$${s.accumDepreciation.toFixed(2)}</td>
-          <td style="font-weight:700; color:var(--color-o2c);">$${s.netBookValue.toFixed(2)}</td>
+          <td style="font-weight:600; color:var(--color-p2p);">${formatMoney(s.deprAmount)}</td>
+          <td class="text-danger">${formatMoney(s.accumDepreciation)}</td>
+          <td style="font-weight:700; color:var(--color-o2c);">${formatMoney(s.netBookValue)}</td>
         </tr>
       `).join("") : `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">Asset fully depreciated or retired — no remaining schedule.</td></tr>`;
 
@@ -448,9 +449,9 @@ function renderFixedAssets(container) {
               <div>
                 <h3 class="modal-title">Depreciation Schedule — ${asset.name}</h3>
                 <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
-                  Cost: $${asset.cost.toFixed(2)} | Salvage: $${asset.salvageValue.toFixed(2)} | 
-                  Life: ${asset.usefulLife} yrs | Monthly: <strong>$${monthlyDepr.toFixed(2)}</strong> | 
-                  Accumulated: <strong class="text-danger">$${asset.accumDepreciation.toFixed(2)}</strong>
+                  Cost: ${formatMoney(asset.cost)} | Salvage: ${formatMoney(asset.salvageValue)} | 
+                  Life: ${asset.usefulLife} yrs | Monthly: <strong>${formatMoney(monthlyDepr)}</strong> | 
+                  Accumulated: <strong class="text-danger">${formatMoney(asset.accumDepreciation)}</strong>
                 </div>
               </div>
               <button class="modal-close">&times;</button>
