@@ -11,6 +11,13 @@ import { renderReports } from "./views/reports";
 import { renderSettings } from "./views/settings";
 import { renderBIR } from "./views/bir-reports";
 
+// Support Android native print bridge if running in the APK WebView wrapper
+if (typeof window !== "undefined" && (window as any).AndroidPrint) {
+  window.print = function() {
+    (window as any).AndroidPrint.print();
+  };
+}
+
 // Global Module View Mappings
 const MODULES = {
   dashboard: renderDashboard,

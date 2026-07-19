@@ -845,11 +845,48 @@ tr:hover td {
   .btn, .modal-overlay, .toast-container,
   #login-overlay, .no-print, .print-hide { display: none !important; }
 
-  body { background: white; color: black; font-family: Arial, sans-serif; }
-  .app-container { height: auto; width: auto; display: block; }
-  .main-wrapper { overflow: visible; }
-  .content-body { padding: 0; overflow: visible; }
-  .card { border: 1px solid #ddd; box-shadow: none; background: white; page-break-inside: avoid; }
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    background: white !important;
+    color: black !important;
+    font-family: Arial, sans-serif;
+  }
+
+  .app-container {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    width: auto !important;
+    overflow: visible !important;
+  }
+
+  .main-wrapper {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .content-body {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .card {
+    border: 1px solid #ddd;
+    box-shadow: none;
+    background: white;
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+    padding: 10px;
+  }
+
   .card-title, h2, h3, h4 { color: #111; }
   table { border: 1px solid #555; width: 100%; }
   th { background: #eee; color: #111; border-bottom: 2px solid #555; padding: 6px; }
