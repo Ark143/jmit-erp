@@ -443,20 +443,24 @@ class Store {
     const po = this.state.purchaseOrders.find((p: any) => p.id === pi.purchaseOrderId);
     if (!po) return [];
     const grn = this.state.goodsReceipts.find((g: any) => g.purchaseOrderId === po.id);
-    if (!grn) return [];
 
     const maps = this.state.settings.glMappings;
     const baseTotal = this.convertToBase(po.total, po.currency);
 
-    // Calculate accepted vs rejected values
     let acceptedCost = 0;
     let rejectedCost = 0;
-    grn.items.forEach((line: any) => {
-      const item = this.getItem(line.itemId);
-      const cost = item ? item.cost : 0;
-      acceptedCost += cost * line.acceptedQty;
-      rejectedCost += cost * line.rejectedQty;
-    });
+    if (grn) {
+      grn.items.forEach((line: any) => {
+        const item = this.getItem(line.itemId);
+        const cost = item ? item.cost : 0;
+        acceptedCost += cost * line.acceptedQty;
+        rejectedCost += cost * line.rejectedQty;
+      });
+    } else {
+      po.items.forEach((item: any) => {
+        acceptedCost += (item.cost || 0) * (item.qty || 0);
+      });
+    }
 
     const baseAccepted = this.convertToBase(acceptedCost, po.currency);
     const baseRejected = this.convertToBase(rejectedCost, po.currency);
@@ -1797,7 +1801,48 @@ class Store {
       this.logAudit(newPay, "Submitted");
     }
     this.saveState();
+    this.saveState();
     return newPay;
+  }
+
+  // --- CREDIT / DEBIT MEMO ---
+  createCreditMemo(memoData: any) {
+    const date = memoData.date || new Date().toISOString().split("T")[0];
+    if (this.isPeriodClosed(date)) throw new Error("Posting date falls within a closed fiscal period!");
+    const id = "CM-" + String(Date.now()).slice(-6);
+    const partner = this.getPartner(memoData.partnerId);
+    const maps = this.state.settings.glMappings;
+    const amt = Number(memoData.amount) || 0;
+    const memo: any = { id, date, type: "CreditMemo", module: memoData.module,
+      partnerId: memoData.partnerId, partnerName: partner?.name || "",
+      amount: amt, reason: memoData.reason || "", currency: memoData.currency || "PHP",
+      rate: Number(memoData.rate) || 1.0, companyId: memoData.companyId || this.state.settings.activeCompany,
+      referenceDocId: memoData.referenceDocId || "", status: "Posted" };
+    const jeId = "JE-" + String(Date.now()).slice(-6);
+    const jeLines = memoData.module === "o2c"
+      ? [{ code: maps.salesAccount, debit: amt, credit: 0 }, { code: maps.arAccount, debit: 0, credit: amt }]
+      : [{ code: maps.apAccount, debit: amt, credit: 0 }, { code: maps.inventoryAccount, debit: 0, credit: amt }];
+    this.postJournalEntry({ id: jeId, date, reference: `Credit Memo ${id}`, lines: jeLines, status: "Posted" });
+    this.state.payments.push(memo); this.saveState(); return memo;
+  }
+  createDebitMemo(memoData: any) {
+    const date = memoData.date || new Date().toISOString().split("T")[0];
+    if (this.isPeriodClosed(date)) throw new Error("Posting date falls within a closed fiscal period!");
+    const id = "DM-" + String(Date.now()).slice(-6);
+    const partner = this.getPartner(memoData.partnerId);
+    const maps = this.state.settings.glMappings;
+    const amt = Number(memoData.amount) || 0;
+    const memo: any = { id, date, type: "DebitMemo", module: memoData.module,
+      partnerId: memoData.partnerId, partnerName: partner?.name || "",
+      amount: amt, reason: memoData.reason || "", currency: memoData.currency || "PHP",
+      rate: Number(memoData.rate) || 1.0, companyId: memoData.companyId || this.state.settings.activeCompany,
+      referenceDocId: memoData.referenceDocId || "", status: "Posted" };
+    const jeId = "JE-" + String(Date.now()).slice(-6);
+    const jeLines = memoData.module === "o2c"
+      ? [{ code: maps.arAccount, debit: amt, credit: 0 }, { code: maps.salesAccount, debit: 0, credit: amt }]
+      : [{ code: maps.inventoryAccount, debit: amt, credit: 0 }, { code: maps.apAccount, debit: 0, credit: amt }];
+    this.postJournalEntry({ id: jeId, date, reference: `Debit Memo ${id}`, lines: jeLines, status: "Posted" });
+    this.state.payments.push(memo); this.saveState(); return memo;
   }
 
   submitPaymentEntry(paymentId) {

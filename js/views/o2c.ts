@@ -1,6 +1,6 @@
 // JMIT ERP - Sales & Order-to-Cash (O2C) Full-Page Flow View Module
 import { store } from "../store";
-import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview, ChargeCalculator } from "../utils";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview, ChargeCalculator, renderMemoForm } from "../utils";
 
 export function renderO2C(container, pathParts) {
   const subPage = pathParts[1] || "sales-orders";
@@ -37,6 +37,8 @@ export function renderO2C(container, pathParts) {
     } else {
       renderReturnsList(container);
     }
+  } else if (subPage === "memos") {
+    renderMemoForm(container, "o2c");
   }
 }
 
