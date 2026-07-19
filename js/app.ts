@@ -9,6 +9,7 @@ import { renderAccounting } from "./views/accounting";
 import { renderFinance } from "./views/finance";
 import { renderReports } from "./views/reports";
 import { renderSettings } from "./views/settings";
+import { renderBIR } from "./views/bir-reports";
 
 // Global Module View Mappings
 const MODULES = {
@@ -19,7 +20,8 @@ const MODULES = {
   accounting: renderAccounting,
   finance: renderFinance,
   reports: renderReports,
-  settings: renderSettings
+  settings: renderSettings,
+  bir: renderBIR
 };
 
 // Global DOM Elements
