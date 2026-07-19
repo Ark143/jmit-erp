@@ -1,6 +1,6 @@
 // JMIT ERP - Procurement & Procure-to-Pay (P2P) Full-Page Flow View Module
 import { store } from "../store.js";
-import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview, ChargeCalculator } from "../utils.js";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview, ChargeCalculator, renderMemoForm } from "../utils.js";
 export function renderP2P(container, pathParts) {
     const subPage = pathParts[1] || "purchase-orders";
     const action = pathParts[2];
@@ -45,6 +45,9 @@ export function renderP2P(container, pathParts) {
         else {
             renderPurchaseReturnsList(container);
         }
+    }
+    else if (subPage === "memos") {
+        renderMemoForm(container, "p2p");
     }
 }
 // --- 1. PURCHASE ORDERS VIEW RENDERERS ---

@@ -260,4 +260,48 @@ export class ChargeCalculator {
         return parseFloat((baseAmt + taxAmt).toFixed(2));
     }
 }
+// ─── Credit / Debit Memo Form (shared by O2C and P2P) ───
+export function renderMemoForm(container, module) {
+    const partners = module === "o2c" ? store.getPartners().customers : store.getPartners().vendors;
+    const partnerOptions = partners.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
+    const backRoute = module === "o2c" ? "#o2c/sales-orders" : "#p2p/purchase-orders";
+    container.innerHTML = `<div class="card animate-fade-in"><div class="card-header">
+    <h3 class="card-title">${module === "o2c" ? "O2C" : "P2P"} Credit / Debit Memo</h3>
+    <button onclick="window.location.hash='${backRoute}'" class="btn btn-outline btn-sm">Back</button></div>
+    <form id="memo-form"><div class="grid-2">
+      <div class="form-group"><label class="form-label">Partner</label>
+        <select id="memo-partner" class="form-control" required><option value="">Select...</option>${partnerOptions}</select></div>
+      <div class="form-group"><label class="form-label">Type</label>
+        <select id="memo-type" class="form-control"><option value="credit">Credit Memo</option><option value="debit">Debit Memo</option></select></div>
+      <div class="form-group"><label class="form-label">Amount</label>
+        <input type="number" id="memo-amount" class="form-control" step="0.01" min="0.01" required /></div>
+      <div class="form-group"><label class="form-label">Date</label>
+        <input type="date" id="memo-date" class="form-control" value="${new Date().toISOString().split("T")[0]}" /></div>
+    </div>
+    <div class="form-group"><label class="form-label">Reason</label>
+      <input type="text" id="memo-reason" class="form-control" placeholder="e.g. Price adjustment, Return, Discount" required /></div>
+    <button type="submit" class="btn btn-primary">Post Memo</button></form></div>`;
+    container.querySelector("#memo-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const data = {
+            module,
+            partnerId: container.querySelector("#memo-partner").value,
+            amount: Number(container.querySelector("#memo-amount").value),
+            date: container.querySelector("#memo-date").value,
+            reason: container.querySelector("#memo-reason").value,
+        };
+        try {
+            const isCredit = container.querySelector("#memo-type").value === "credit";
+            if (isCredit)
+                store.createCreditMemo(data);
+            else
+                store.createDebitMemo(data);
+            window.showToast(`${isCredit ? "Credit" : "Debit"} Memo posted successfully.`, "success");
+            window.location.hash = backRoute;
+        }
+        catch (err) {
+            window.showToast(err.message, "danger");
+        }
+    });
+}
 //# sourceMappingURL=utils.js.map

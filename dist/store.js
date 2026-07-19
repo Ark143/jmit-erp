@@ -419,19 +419,23 @@ class Store {
         if (!po)
             return [];
         const grn = this.state.goodsReceipts.find((g) => g.purchaseOrderId === po.id);
-        if (!grn)
-            return [];
         const maps = this.state.settings.glMappings;
         const baseTotal = this.convertToBase(po.total, po.currency);
-        // Calculate accepted vs rejected values
         let acceptedCost = 0;
         let rejectedCost = 0;
-        grn.items.forEach((line) => {
-            const item = this.getItem(line.itemId);
-            const cost = item ? item.cost : 0;
-            acceptedCost += cost * line.acceptedQty;
-            rejectedCost += cost * line.rejectedQty;
-        });
+        if (grn) {
+            grn.items.forEach((line) => {
+                const item = this.getItem(line.itemId);
+                const cost = item ? item.cost : 0;
+                acceptedCost += cost * line.acceptedQty;
+                rejectedCost += cost * line.rejectedQty;
+            });
+        }
+        else {
+            po.items.forEach((item) => {
+                acceptedCost += (item.cost || 0) * (item.qty || 0);
+            });
+        }
         const baseAccepted = this.convertToBase(acceptedCost, po.currency);
         const baseRejected = this.convertToBase(rejectedCost, po.currency);
         const baseTax = this.convertToBase(po.tax || 0, po.currency);
@@ -992,6 +996,20 @@ class Store {
         if (reqs.soApproval !== false && so.status !== "Approved") {
             throw new Error("Sales Order must be Approved before shipping items");
         }
+        // Duplicate prevention: check if all SO items already fully delivered
+        const existingDNs = this.state.deliveries.filter(d => d.salesOrderId === dnData.salesOrderId);
+        for (const line of dnData.items) {
+            const soItem = so.items.find((i) => i.itemId === line.itemId);
+            if (!soItem)
+                continue;
+            const totalDelivered = existingDNs.reduce((sum, dn) => {
+                const dnLine = dn.items.find((l) => l.itemId === line.itemId);
+                return sum + (dnLine ? dnLine.qty : 0);
+            }, 0);
+            if (totalDelivered >= soItem.qty) {
+                throw new Error(`Item ${soItem.sku || line.itemId} already fully delivered (${totalDelivered}/${soItem.qty}). Cannot create further delivery.`);
+            }
+        }
         const newDn = {
             id,
             salesOrderId: dnData.salesOrderId,
@@ -1338,6 +1356,20 @@ class Store {
         if (reqs.poApproval !== false && po.status !== "Approved") {
             throw new Error("Purchase Order must be Approved before receiving goods");
         }
+        // Duplicate prevention: check if all PO items already fully received
+        const existingGRNs = this.state.goodsReceipts.filter(g => g.purchaseOrderId === grnData.purchaseOrderId);
+        for (const line of grnData.items) {
+            const poItem = po.items.find((i) => i.itemId === line.itemId);
+            if (!poItem)
+                continue;
+            const totalReceived = existingGRNs.reduce((sum, grn) => {
+                const grnLine = grn.items.find((l) => l.itemId === line.itemId);
+                return sum + (grnLine ? grnLine.acceptedQty : 0);
+            }, 0);
+            if (totalReceived >= poItem.qty) {
+                throw new Error(`Item ${poItem.sku || line.itemId} already fully received (${totalReceived}/${poItem.qty}). Cannot create further GRN.`);
+            }
+        }
         const newGrn = {
             id,
             purchaseOrderId: po.id,
@@ -1421,20 +1453,27 @@ class Store {
         };
         if (reqs.piSubmission === false) {
             const grn = this.state.goodsReceipts.find(g => g.purchaseOrderId === po.id);
-            if (!grn)
-                throw new Error("No warehouse Goods Receipt found for this PO");
-            const maps = this.state.settings.glMappings;
-            const baseTotal = this.convertToBase(po.total, po.currency);
+            // GRN is required for goods, optional for services/direct billing
             let acceptedCost = 0;
             let rejectedCost = 0;
-            grn.items.forEach(line => {
-                const item = this.getItem(line.itemId);
-                const cost = item ? item.cost : 0;
-                acceptedCost += cost * line.acceptedQty;
-                rejectedCost += cost * line.rejectedQty;
-            });
+            if (grn) {
+                grn.items.forEach(line => {
+                    const item = this.getItem(line.itemId);
+                    const cost = item ? item.cost : 0;
+                    acceptedCost += cost * line.acceptedQty;
+                    rejectedCost += cost * line.rejectedQty;
+                });
+            }
+            else {
+                // No GRN: use PO item costs directly
+                po.items.forEach((item) => {
+                    acceptedCost += (item.cost || 0) * (item.qty || 0);
+                });
+            }
             const baseAccepted = this.convertToBase(acceptedCost, po.currency);
             const baseRejected = this.convertToBase(rejectedCost, po.currency);
+            const maps = this.state.settings.glMappings;
+            const baseTotal = this.convertToBase(po.total, po.currency);
             const baseTax = this.convertToBase(po.tax || 0, po.currency);
             const baseWht = this.convertToBase(po.wht || 0, po.currency);
             let baseOther = 0;
@@ -1484,19 +1523,24 @@ class Store {
         if (!po)
             throw new Error("Reference PO not found");
         const grn = this.state.goodsReceipts.find(g => g.purchaseOrderId === po.id);
-        if (!grn)
-            throw new Error("No warehouse Goods Receipt found for this PO");
+        // GRN optional for services/direct billing
         const maps = this.state.settings.glMappings;
         const baseTotal = this.convertToBase(po.total, po.currency);
-        // Calculate accepted vs rejected values
         let acceptedCost = 0;
         let rejectedCost = 0;
-        grn.items.forEach(line => {
-            const item = this.getItem(line.itemId);
-            const cost = item ? item.cost : 0;
-            acceptedCost += cost * line.acceptedQty;
-            rejectedCost += cost * line.rejectedQty;
-        });
+        if (grn) {
+            grn.items.forEach(line => {
+                const item = this.getItem(line.itemId);
+                const cost = item ? item.cost : 0;
+                acceptedCost += cost * line.acceptedQty;
+                rejectedCost += cost * line.rejectedQty;
+            });
+        }
+        else {
+            po.items.forEach((item) => {
+                acceptedCost += (item.cost || 0) * (item.qty || 0);
+            });
+        }
         const baseAccepted = this.convertToBase(acceptedCost, po.currency);
         const baseRejected = this.convertToBase(rejectedCost, po.currency);
         const baseTax = this.convertToBase(po.tax || 0, po.currency);
@@ -1596,6 +1640,19 @@ class Store {
         const date = payData.date || new Date().toISOString().split("T")[0];
         if (this.isPeriodClosed(date))
             throw new Error("Posting date falls within a closed fiscal period!");
+        // Duplicate prevention: check if referenced invoice already fully paid
+        if (payData.referenceInvoiceId) {
+            if (payData.type === "Receive") {
+                const inv = this.state.salesInvoices.find(s => s.id === payData.referenceInvoiceId);
+                if (inv && inv.status === "Paid")
+                    throw new Error("This invoice is already fully paid. Cannot create duplicate payment.");
+            }
+            else {
+                const inv = this.state.purchaseInvoices.find(p => p.id === payData.referenceInvoiceId);
+                if (inv && inv.status === "Paid")
+                    throw new Error("This invoice is already fully paid. Cannot create duplicate payment.");
+            }
+        }
         const id = "PAY-2026-" + String(this.state.payments.length + 1).padStart(3, "0");
         const reqs = this.state.settings.workflowRequirements || {};
         const newPay = {
@@ -1611,17 +1668,27 @@ class Store {
             rate: Number(payData.rate) || 1.0,
             status: (reqs.paymentSubmission === false) ? "Posted" : "Draft"
         };
-        // Always update invoice status when payment references an invoice
+        // Always update invoice status + cascade to PO/SO when payment references an invoice
         if (payData.referenceInvoiceId) {
             if (payData.type === "Receive") {
                 const inv = this.state.salesInvoices.find(s => s.id === payData.referenceInvoiceId);
-                if (inv)
+                if (inv) {
                     inv.status = "Paid";
+                    // Cascade: if SI is paid, close the linked SO
+                    const so = this.state.salesOrders.find(s => s.id === inv.salesOrderId);
+                    if (so)
+                        so.status = "Closed";
+                }
             }
             else {
                 const inv = this.state.purchaseInvoices.find(p => p.id === payData.referenceInvoiceId);
-                if (inv)
+                if (inv) {
                     inv.status = "Paid";
+                    // Cascade: if PI is paid, close the linked PO
+                    const po = this.state.purchaseOrders.find(p => p.id === inv.purchaseOrderId);
+                    if (po)
+                        po.status = "Closed";
+                }
             }
         }
         if (reqs.paymentSubmission === false) {
@@ -1665,7 +1732,53 @@ class Store {
             this.logAudit(newPay, "Submitted");
         }
         this.saveState();
+        this.saveState();
         return newPay;
+    }
+    // --- CREDIT / DEBIT MEMO ---
+    createCreditMemo(memoData) {
+        const date = memoData.date || new Date().toISOString().split("T")[0];
+        if (this.isPeriodClosed(date))
+            throw new Error("Posting date falls within a closed fiscal period!");
+        const id = "CM-" + String(Date.now()).slice(-6);
+        const partner = this.getPartner(memoData.partnerId);
+        const maps = this.state.settings.glMappings;
+        const amt = Number(memoData.amount) || 0;
+        const memo = { id, date, type: "CreditMemo", module: memoData.module,
+            partnerId: memoData.partnerId, partnerName: partner?.name || "",
+            amount: amt, reason: memoData.reason || "", currency: memoData.currency || "PHP",
+            rate: Number(memoData.rate) || 1.0, companyId: memoData.companyId || this.state.settings.activeCompany,
+            referenceDocId: memoData.referenceDocId || "", status: "Posted" };
+        const jeId = "JE-" + String(Date.now()).slice(-6);
+        const jeLines = memoData.module === "o2c"
+            ? [{ code: maps.salesAccount, debit: amt, credit: 0 }, { code: maps.arAccount, debit: 0, credit: amt }]
+            : [{ code: maps.apAccount, debit: amt, credit: 0 }, { code: maps.inventoryAccount, debit: 0, credit: amt }];
+        this.postJournalEntry({ id: jeId, date, reference: `Credit Memo ${id}`, lines: jeLines, status: "Posted" });
+        this.state.payments.push(memo);
+        this.saveState();
+        return memo;
+    }
+    createDebitMemo(memoData) {
+        const date = memoData.date || new Date().toISOString().split("T")[0];
+        if (this.isPeriodClosed(date))
+            throw new Error("Posting date falls within a closed fiscal period!");
+        const id = "DM-" + String(Date.now()).slice(-6);
+        const partner = this.getPartner(memoData.partnerId);
+        const maps = this.state.settings.glMappings;
+        const amt = Number(memoData.amount) || 0;
+        const memo = { id, date, type: "DebitMemo", module: memoData.module,
+            partnerId: memoData.partnerId, partnerName: partner?.name || "",
+            amount: amt, reason: memoData.reason || "", currency: memoData.currency || "PHP",
+            rate: Number(memoData.rate) || 1.0, companyId: memoData.companyId || this.state.settings.activeCompany,
+            referenceDocId: memoData.referenceDocId || "", status: "Posted" };
+        const jeId = "JE-" + String(Date.now()).slice(-6);
+        const jeLines = memoData.module === "o2c"
+            ? [{ code: maps.arAccount, debit: amt, credit: 0 }, { code: maps.salesAccount, debit: 0, credit: amt }]
+            : [{ code: maps.inventoryAccount, debit: amt, credit: 0 }, { code: maps.apAccount, debit: 0, credit: amt }];
+        this.postJournalEntry({ id: jeId, date, reference: `Debit Memo ${id}`, lines: jeLines, status: "Posted" });
+        this.state.payments.push(memo);
+        this.saveState();
+        return memo;
     }
     submitPaymentEntry(paymentId) {
         if (!this.checkPermission("finance", "approve"))
@@ -1686,8 +1799,12 @@ class Store {
             ];
             if (pay.referenceInvoiceId) {
                 const inv = this.state.salesInvoices.find(s => s.id === pay.referenceInvoiceId);
-                if (inv)
+                if (inv) {
                     inv.status = "Paid";
+                    const so = this.state.salesOrders.find(s => s.id === inv.salesOrderId);
+                    if (so)
+                        so.status = "Closed";
+                }
             }
         }
         else {
@@ -1697,8 +1814,12 @@ class Store {
             ];
             if (pay.referenceInvoiceId) {
                 const inv = this.state.purchaseInvoices.find(p => p.id === pay.referenceInvoiceId);
-                if (inv)
+                if (inv) {
                     inv.status = "Paid";
+                    const po = this.state.purchaseOrders.find(p => p.id === inv.purchaseOrderId);
+                    if (po)
+                        po.status = "Closed";
+                }
             }
         }
         this.postJournalEntry({
