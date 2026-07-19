@@ -42,10 +42,13 @@ function renderPaymentsList(container) {
   const payments = [...store.getPayments()].reverse();
   const canCreatePay = store.checkPermission("finance", "create");
 
+  (window as any).__csvDataPay = store.getPayments().map((p)=>[p.id,p.partnerName,p.date,p.type,String(p.amount),p.status]);
   container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Treasury Receipts & Payments Ledger</h3>
+        <button id="pay-csv-btn" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataPay;if(d)window.__exportCSV('payments.csv',["ID","Partner","Date","Type","Amount","Status"],d)">📥 Export CSV</button>
+        
         ${canCreatePay ? `<div style="display: flex; gap: 8px;">
           <button onclick="window.location.hash='#accounting/payments/new?type=Receive'" class="btn btn-success btn-sm">
             + Customer Receipt

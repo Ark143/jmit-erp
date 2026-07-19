@@ -1,6 +1,7 @@
 // JMIT ERP - Inventory, Warehouses & Stock Entries Module View (Phase 2)
 import { store } from "../store";
 import { formatMoney } from "../utils";
+import { renderInventoryLedger } from "./stock-ledger";
 
 export function renderInventory(container, pathParts) {
   const subPage = pathParts[1] || "items";
@@ -25,6 +26,9 @@ export function renderInventory(container, pathParts) {
         <button class="settings-tab-btn ${subPage === 'categories' ? 'active' : ''}" onclick="window.location.hash='#inventory/categories'">
           🏷️ Categories
         </button>
+        <button class="settings-tab-btn ${subPage === 'stock-ledger' ? 'active' : ''}" onclick="window.location.hash='#inventory/stock-ledger'">
+          📒 Stock Ledger
+        </button>
       </div>
 
       <div id="inventory-content-viewport"></div>
@@ -48,6 +52,8 @@ export function renderInventory(container, pathParts) {
     renderUOMConversions(viewport);
   } else if (subPage === "categories") {
     renderCategories(viewport);
+  } else if (subPage === "stock-ledger") {
+    renderInventoryLedger(viewport);
   }
 }
 

@@ -50,11 +50,13 @@ export function renderP2P(container, pathParts) {
 // --- 1. PURCHASE ORDERS VIEW RENDERERS ---
 function renderPurchaseOrdersList(container) {
     const purchaseOrders = [...store.getPurchaseOrders()].reverse();
+    window.__csvDataPo = store.getPurchaseOrders().map((o) => [o.id, o.vendorName, o.date, o.currency, String(o.total), o.status]);
     container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Purchase Orders Register Ledger</h3>
-        <button onclick="window.location.hash='#p2p/purchase-orders/new'" class="btn btn-warning btn-sm">
+        <button id="po-csv-btn" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataPo;if(d)window.__exportCSV('purchase-orders.csv',["PO#","Vendor","Date","Currency","Total","Status"],d)">📥 Export CSV</button>
+          <button onclick="window.location.hash='#p2p/purchase-orders/new'" class="btn btn-warning btn-sm">
           + Create Purchase Order
         </button>
       </div>
@@ -100,7 +102,7 @@ function renderPurchaseOrderForm(container) {
     const items = store.getItems();
     const rates = store.getExchangeRates();
     const activeCompany = store.getActiveCompany();
-    let vendorOptions = vendors.map(v => `<option value="${v.id}">${v.name} (TIN: ${v.taxId})</option>`).join("");
+    let vendorOptions = vendors.map(v => `<option value="${v.id}">${v.name} (TIN: ${v.taxId || "N/A"})</option>`).join("");
     let itemOptions = items.map(i => `<option value="${i.id}">${i.name} (${formatMoney(i.cost)})</option>`).join("");
     container.innerHTML = `
     <div class="card animate-fade-in">
@@ -179,9 +181,66 @@ function renderPurchaseOrderForm(container) {
           <button type="button" id="po-add-line" class="btn btn-outline btn-sm">+ Add Line Item</button>
         </div>
 
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); text-align: right;">
-          <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">
-            Estimated Total Purchases: <strong id="po-total" class="text-warning">$0.00</strong>
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div class="form-group">
+              <label class="form-label">Input VAT Amount (₱)</label>
+              <input type="number" id="po-vat-amt" class="form-control" value="0" step="0.01" min="0" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">EWT/WHT Amount (₱)</label>
+              <input type="number" id="po-wht-amt" class="form-control" value="0" step="0.01" min="0" placeholder="0.00" />
+            </div>
+            <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; background: rgba(255,255,255,0.02); display:flex; align-items:center;">
+              <span style="font-size: 0.75rem; color: var(--text-secondary);">PO GL: <strong id="po-salesacct-disp" style="font-family:monospace;">${store.getSettings().glMappings.cogsAccount}</strong></span>
+            </div>
+          </div>
+              <!-- Other Charges -->
+          <div style="margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+              <label class="form-label" style="margin:0;">Other Charges</label>
+              <button type="button" id="po-add-charge" class="btn btn-outline btn-xs">+ Add Charge</button>
+            </div>
+            <table id="po-charges-table" style="width:100%; font-size:0.8rem;">
+              <thead><tr>
+                <th style="width:160px;">GL Account</th>
+                <th style="width:80px;">Rate%</th>
+                <th style="width:120px;">Amount</th>
+                <th style="width:70px;">Base</th>
+                <th style="width:35px;" title="VAT">V</th>
+                <th style="width:35px;" title="WHT">W</th>
+                <th style="width:120px;">Total</th>
+                <th style="width:30px;"></th>
+              </tr></thead>
+              <tbody id="po-charges-body"></tbody>
+            </table>
+          </div>
+              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button type="button" id="po-calc-btn" class="btn btn-warning btn-sm">↻ Calculate VAT / WTax / Charges</button>
+          </div>
+
+          <div style="text-align: right; padding-top: 12px; border-top: 1px solid var(--border-color);">
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              Subtotal: <strong id="po-subtotal">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              VAT from Charges: <strong id="po-vat-charges" style="display:none;">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              WHT from Charges: <strong id="po-wht-charges" style="display:none;">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              VAT Amount (manual): <strong id="po-tax">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              WHT Amount (manual): <strong id="po-wht">$0.00</strong>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
+              Other Charges: <strong id="po-other-total">$0.00</strong>
+            </div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">
+              Net Order Total: <strong id="po-total" class="text-warning">$0.00</strong>
+            </div>
           </div>
         </div>
 
@@ -210,18 +269,58 @@ function renderPurchaseOrderForm(container) {
         }
     });
     const updateTotals = () => {
-        let total = 0;
+        let subtotal = 0;
         linesBody.querySelectorAll(".po-line-row").forEach(row => {
             const itemId = row.querySelector(".line-item").value;
             const qty = Number(row.querySelector(".line-qty").value) || 0;
             if (itemId) {
                 const item = store.getItem(itemId);
                 if (item) {
-                    total += item.cost * qty;
+                    subtotal += item.cost * qty;
                 }
             }
         });
-        container.querySelector("#po-total").textContent = `${formatMoney(total)}`;
+        container.querySelector("#po-subtotal").textContent = formatMoney(subtotal);
+        // Compute charges
+        let autoVat = 0, autoWht = 0, otherTotal = 0;
+        container.querySelectorAll(".po-charge-row").forEach(row => {
+            const amt = Number(row.querySelector(".charge-amt").value) || 0;
+            const vatPct = Number(row.querySelector(".charge-vat").value) || 0;
+            const baseOn = row.querySelector(".charge-base").value;
+            let chTotal;
+            if (amt === 0 && vatPct > 0) {
+                const base = baseOn === "gross" ? subtotal / (1 + vatPct / 100) : subtotal;
+                chTotal = parseFloat((base * vatPct / 100).toFixed(2));
+            }
+            else {
+                const baseAmt = baseOn === "gross" ? amt / (1 + vatPct / 100) : amt;
+                const vatPart = parseFloat((baseAmt * vatPct / 100).toFixed(2));
+                chTotal = parseFloat((baseAmt + vatPart).toFixed(2));
+            }
+            row.querySelector(".charge-total").textContent = formatMoney(chTotal);
+            const isVat = row.querySelector(".charge-isvat").checked;
+            const isWht = row.querySelector(".charge-iswht").checked;
+            if (isVat)
+                autoVat += chTotal;
+            else if (isWht)
+                autoWht += chTotal;
+            else
+                otherTotal += chTotal;
+        });
+        const vatEl = container.querySelector("#po-vat-charges");
+        const whtEl = container.querySelector("#po-wht-charges");
+        vatEl.style.display = autoVat > 0 ? "inline" : "none";
+        whtEl.style.display = autoWht > 0 ? "inline" : "none";
+        vatEl.textContent = formatMoney(autoVat);
+        whtEl.textContent = formatMoney(autoWht);
+        const manualVat = Number(container.querySelector("#po-vat-amt").value) || 0;
+        const manualWht = Number(container.querySelector("#po-wht-amt").value) || 0;
+        const tax = manualVat + autoVat;
+        const wht = manualWht + autoWht;
+        container.querySelector("#po-tax").textContent = formatMoney(tax);
+        container.querySelector("#po-wht").textContent = formatMoney(wht);
+        container.querySelector("#po-other-total").textContent = formatMoney(otherTotal);
+        container.querySelector("#po-total").textContent = formatMoney(subtotal + tax - wht + otherTotal);
     };
     const addLine = () => {
         const tr = document.createElement("tr");
@@ -268,6 +367,38 @@ function renderPurchaseOrderForm(container) {
     };
     addLineBtn.addEventListener("click", addLine);
     addLine();
+    // VAT/WHT manual amount listeners
+    const vatAmtInp = container.querySelector("#po-vat-amt");
+    const whtAmtInp = container.querySelector("#po-wht-amt");
+    vatAmtInp.addEventListener("input", updateTotals);
+    whtAmtInp.addEventListener("input", updateTotals);
+    // Other charges
+    const chargesBody = container.querySelector("#po-charges-body");
+    const acctOptions = store.getAccounts().map(a => `<option value="${a.code}">${a.code} — ${a.name}</option>`).join("");
+    const addCharge = () => {
+        const tr = document.createElement("tr");
+        tr.className = "po-charge-row";
+        tr.innerHTML = `
+      <td><select class="form-control charge-acct" style="width:100%">${acctOptions}</select></td>
+      <td><input type="number" class="form-control charge-vat" style="width:100%" value="0" step="0.01" min="0" max="100" placeholder="12" /></td>
+      <td><input type="number" class="form-control charge-amt" style="width:100%" value="0" step="0.01" min="0" placeholder="0.00" /></td>
+      <td><select class="form-control charge-base" style="width:100%"><option value="net">Net</option><option value="gross">Gross</option></select></td>
+      <td style="text-align:center;"><input type="checkbox" class="charge-isvat" style="width:16px;height:16px;cursor:pointer;" title="Tick if this is Input VAT" /></td>
+      <td style="text-align:center;"><input type="checkbox" class="charge-iswht" style="width:16px;height:16px;cursor:pointer;" title="Tick if this is EWT/WHT" /></td>
+      <td class="charge-total" style="font-weight:700;color:var(--color-p2p);">${formatMoney(0)}</td>
+      <td><button type="button" class="btn btn-outline btn-sm remove-charge" style="color:var(--color-danger);border-color:transparent;">&times;</button></td>
+    `;
+        chargesBody.appendChild(tr);
+        tr.querySelector(".charge-amt").addEventListener("input", updateTotals);
+        tr.querySelector(".charge-vat").addEventListener("input", updateTotals);
+        tr.querySelector(".charge-base").addEventListener("change", updateTotals);
+        tr.querySelector(".charge-isvat").addEventListener("change", updateTotals);
+        tr.querySelector(".charge-iswht").addEventListener("change", updateTotals);
+        tr.querySelector(".remove-charge").addEventListener("click", () => { tr.remove(); updateTotals(); });
+        updateTotals();
+    };
+    container.querySelector("#po-add-charge").addEventListener("click", addCharge);
+    container.querySelector("#po-calc-btn").addEventListener("click", () => { updateTotals(); window.showToast("Charges recalculated", "success"); });
     form.addEventListener("submit", (e) => {
         e.preventDefault();
         const lines = [];
@@ -278,16 +409,30 @@ function renderPurchaseOrderForm(container) {
             lines.push({ itemId, qty, uom });
         });
         try {
+            const otherCharges = [];
+            chargesBody.querySelectorAll(".po-charge-row").forEach(row => {
+                const acct = row.querySelector(".charge-acct").value;
+                const amt = Number(row.querySelector(".charge-amt").value) || 0;
+                const vatPct = Number(row.querySelector(".charge-vat").value) || 0;
+                const baseOn = row.querySelector(".charge-base").value;
+                const isVat = row.querySelector(".charge-isvat").checked;
+                const isWht = row.querySelector(".charge-iswht").checked;
+                if (amt > 0 || vatPct > 0)
+                    otherCharges.push({ accountCode: acct, amount: amt, vatRate: vatPct, baseOn, isVat, isWht });
+            });
             const poData = {
                 companyId: form.querySelector("#po-company").value,
                 vendorId: vendorSelect.value,
                 date: form.querySelector("#po-date").value,
                 items: lines,
                 currency: currencySelect.value,
-                rate: Number(rateInput.value)
+                rate: Number(rateInput.value),
+                taxAmount: Number(vatAmtInp.value) || 0,
+                whtAmount: Number(whtAmtInp.value) || 0,
+                otherCharges
             };
             store.createPurchaseOrder(poData);
-            window.showToast("Purchase Order successfully created and saved in Ordered status.", "success");
+            window.showToast("Purchase Order successfully created and saved.", "success");
             window.location.hash = "#p2p/purchase-orders";
         }
         catch (err) {
@@ -298,11 +443,13 @@ function renderPurchaseOrderForm(container) {
 // --- 2. GOODS RECEIPTS RENDERERS ---
 function renderGoodsReceiptsList(container) {
     const goodsReceipts = [...store.getGoodsReceipts()].reverse();
+    window.__csvDataGrn = store.getGoodsReceipts().map((g) => [g.id, g.vendorName, g.date, g.purchaseOrderId, g.status]);
     container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Goods Receipt Notes (GRN) Ledger</h3>
-      </div>
+        <button id="grn-csv-btn" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataGrn;if(d)window.__exportCSV('goods-receipts.csv',["GRN#","Vendor","Date","PO#","Status"],d)">📥 Export CSV</button>
+        </div>
       <div class="table-container">
         <table>
           <thead>
@@ -467,11 +614,13 @@ function renderGoodsReceiptForm(container) {
 // --- 3. SUPPLIER INVOICES RENDERERS ---
 function renderPurchaseInvoicesList(container) {
     const invoices = [...store.getPurchaseInvoices()].reverse();
+    window.__csvDataPi = store.getPurchaseInvoices().map((i) => [i.id, i.vendorName, i.date, i.purchaseOrderId, String(i.total), i.status]);
     container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Supplier Purchase Bills Ledger</h3>
-      </div>
+        <button id="pi-csv-btn" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataPi;if(d)window.__exportCSV('purchase-invoices.csv',["PI#","Vendor","Date","PO#","Total","Status"],d)">📥 Export CSV</button>
+        </div>
       <div class="table-container">
         <table>
           <thead>
@@ -614,11 +763,13 @@ function renderPurchaseInvoiceForm(container) {
 // --- 4. PURCHASE RETURNS RENDERERS ---
 function renderPurchaseReturnsList(container) {
     const returns = [...store.getPurchaseReturns()].reverse();
+    window.__csvDataPr = store.getPurchaseReturns().map((r) => [r.id, r.vendorName, r.date, r.purchaseOrderId, String(r.total), r.status]);
     container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Supplier Purchase Returns Ledger</h3>
-        <button id="new-p-return-btn" class="btn btn-danger btn-sm">Process Purchase Return</button>
+        <button id="pr-csv-btn" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataPr;if(d)window.__exportCSV('purchase-returns.csv',["PR#","Vendor","Date","PO#","Total","Status"],d)">📥 Export CSV</button>
+          <button id="new-p-return-btn" class="btn btn-danger btn-sm">Process Purchase Return</button>
       </div>
       <div class="table-container">
         <table>
@@ -662,7 +813,6 @@ function renderPurchaseReturnForm(container) {
         <h3 class="card-title">Process Purchase Return</h3>
         <button onclick="window.location.hash='#p2p/returns'" class="btn btn-outline btn-sm">Cancel</button>
       </div>
-      
       <form id="purchase-return-form">
         <div class="grid-2">
           <div class="form-group">
@@ -689,7 +839,7 @@ function renderPurchaseReturnForm(container) {
         </div>
       </form>
     </div>
-  `;
+        `;
     const invoiceSelect = container.querySelector("#pr-invoice");
     const itemsArea = container.querySelector("#pr-items-area");
     const form = container.querySelector("#purchase-return-form");
@@ -765,6 +915,20 @@ function renderPurchaseReturnForm(container) {
 function renderPurchaseOrderDetails(container, orderId) {
     const po = store.getPurchaseOrders().find(p => p.id === orderId);
     if (!po) {
+        const maps = store.getSettings().glMappings;
+        const sub = po.subtotal || 0;
+        const tax = po.tax || 0;
+        const wht = po.wht || 0;
+        const other = po.otherChargesTotal || 0;
+        const cogs = po.items.reduce((s, i) => s + (store.getItem(i.itemId)?.cost || 0) * i.qty, 0);
+        const lines = [
+            { code: maps.inventoryAccount, debit: cogs, credit: 0 },
+            { code: maps.inputVatAccount || "1220", debit: tax, credit: 0 }
+        ];
+        if (other > 0)
+            lines.push({ code: maps.opexAccount, debit: other, credit: 0 });
+        lines.push({ code: maps.apAccount, debit: 0, credit: sub + tax - wht + other });
+        lines.push({ code: maps.whtLiabilityAccount, debit: 0, credit: wht });
         container.innerHTML = `<div class="card"><p class="text-danger">Order not found.</p></div>`;
         return;
     }
@@ -794,7 +958,7 @@ function renderPurchaseOrderDetails(container, orderId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Vendor Supplier</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${po.vendorName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(po.vendorId).taxId}</div>
+          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(po.vendorId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
@@ -912,7 +1076,7 @@ function renderGoodsReceiptDetails(container, grnId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Vendor Supplier</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${grn.vendorName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(grn.vendorId).taxId}</div>
+          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(grn.vendorId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
@@ -1017,7 +1181,7 @@ function renderPurchaseInvoiceDetails(container, invoiceId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Vendor Supplier</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${pi.vendorName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(pi.vendorId).taxId}</div>
+          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(pi.vendorId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">

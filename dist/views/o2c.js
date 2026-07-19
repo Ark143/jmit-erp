@@ -50,10 +50,12 @@ export function renderO2C(container, pathParts) {
 // --- 1. SALES ORDERS VIEW RENDERERS ---
 function renderSalesOrdersList(container) {
     const salesOrders = [...store.getSalesOrders()].reverse();
+    window.__csvDataSo = store.getSalesOrders().map((o) => [o.id, o.customerName, o.date, o.currency, String(o.total), o.status]);
     container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Sales Orders Register Ledger</h3>
+        <button id="csvDataSo" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataSo;if(d)window.__exportCSV('sales-orders.csv',["SO#","Customer","Date","Currency","Total","Status"],d)">🔽 Export CSV</button>
         <button onclick="window.location.hash='#o2c/sales-orders/new'" class="btn btn-success btn-sm">
           + Create Sales Order
         </button>
@@ -106,7 +108,6 @@ function renderSalesOrderForm(container) {
         <h3 class="card-title">New Sales Order Form</h3>
         <button onclick="window.location.hash='#o2c/sales-orders'" class="btn btn-outline btn-sm">Back to Ledger</button>
       </div>
-      
       <form id="sales-order-form">
         <div class="form-group" style="margin-bottom:16px;">
           <label class="form-label">Transaction Type</label>
@@ -135,8 +136,7 @@ function renderSalesOrderForm(container) {
               <input type="text" id="so-address" class="form-control" placeholder="100 Ayala Avenue, Makati City" required />
             </div>
           </div>
-          
-          <div>
+              <div>
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Billing Currency</label>
@@ -191,8 +191,7 @@ function renderSalesOrderForm(container) {
               <span style="font-size: 0.75rem; color: var(--text-secondary);">Sales GL: <strong id="so-salesacct-disp" style="font-family:monospace;">${store.getSettings().glMappings.salesAccount}</strong></span>
             </div>
           </div>
-          
-          <!-- Other Charges -->
+              <!-- Other Charges -->
           <div style="margin-bottom: 12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
               <label class="form-label" style="margin:0;">Other Charges</label>
@@ -212,8 +211,7 @@ function renderSalesOrderForm(container) {
               <tbody id="so-charges-body"></tbody>
             </table>
           </div>
-          
-          <div style="text-align: right; padding-top: 12px; border-top: 1px solid var(--border-color);">
+              <div style="text-align: right; padding-top: 12px; border-top: 1px solid var(--border-color);">
             <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px;">
               Subtotal: <strong id="so-subtotal">$0.00</strong>
             </div>
@@ -244,6 +242,7 @@ function renderSalesOrderForm(container) {
         </div>
       </form>
     </div>
+      
   `;
     const form = container.querySelector("#sales-order-form");
     const linesBody = container.querySelector("#so-lines-body");
@@ -460,6 +459,24 @@ function renderSalesOrderForm(container) {
 function renderSalesOrderDetails(container, orderId) {
     const so = store.getSalesOrders().find(s => s.id === orderId);
     if (!so) {
+        const maps = store.getSettings().glMappings;
+        const sub = so.subtotal || 0;
+        const tax = so.tax || 0;
+        const wht = so.withholding || 0;
+        const cogs = so.items.reduce((s, i) => s + (store.getItem(i.itemId)?.cost || 0) * i.qty, 0);
+        const lines = [
+            { code: maps.arAccount, debit: so.total, credit: 0 },
+            { code: maps.whtAssetAccount, debit: wht, credit: 0 },
+            { code: so.salesAccountCode || maps.salesAccount, debit: 0, credit: sub },
+            { code: maps.taxAccount, debit: 0, credit: tax }
+        ];
+        (so.otherCharges || []).forEach(ch => {
+            if (ch.isVat || ch.isWht)
+                return;
+            lines.push({ code: ch.accountCode || "", debit: 0, credit: ch.total || 0 });
+        });
+        lines.push({ code: maps.cogsAccount, debit: cogs, credit: 0 });
+        lines.push({ code: maps.inventoryAccount, debit: 0, credit: cogs });
         container.innerHTML = `<div class="card"><p class="text-danger">Order not found.</p></div>`;
         return;
     }
@@ -478,7 +495,7 @@ function renderSalesOrderDetails(container, orderId) {
           <h3 class="card-title" style="margin-top: 4px;">Sales Order details</h3>
         </div>
         <div style="display: flex; gap: 10px;">
-          <button onclick="window.location.hash='#o2c/sales-orders'" class="btn btn-outline btn-sm">Back</button>
+          <button onclick="window.location.hash='#o2c/sales-orders'" class="btn btn-outline btn-sm">Back</button> <button onclick="window.print()" class="btn btn-outline btn-sm no-print">🖨️ Print</button>
           ${isDraft && canApprove ? `<button id="approve-so-btn" class="btn btn-primary btn-sm">Approve Sales Order</button>` : ''}
           ${isDraft && canDelete ? `<button id="delete-so-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
           ${showDeliveryBtn ? `<button id="proceed-delivery-btn" class="btn btn-primary btn-sm">Ship Stock (Delivery Note)</button>` : ''}
@@ -614,11 +631,13 @@ function renderSalesOrderDetails(container, orderId) {
 // --- 2. DELIVERIES RENDERERS ---
 function renderDeliveriesList(container) {
     const deliveries = [...store.getDeliveries()].reverse();
+    window.__csvDataDn = store.getDeliveries().map((d) => [d.id, d.customerName, d.date, d.salesOrderId, d.status]);
     container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Delivery Notes Register Ledger</h3>
-      </div>
+        <button id="dn-csv-btn" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataDn;if(d)window.__exportCSV('delivery-notes.csv',["DN#","Customer","Date","SO#","Status"],d)">📥 Export CSV</button>
+        </div>
       <div class="table-container">
         <table>
           <thead>
@@ -755,11 +774,13 @@ function renderDeliveryForm(container) {
 // --- 3. SALES INVOICES RENDERERS ---
 function renderInvoicesList(container) {
     const invoices = [...store.getSalesInvoices()].reverse();
+    window.__csvDataSi = store.getSalesInvoices().map((i) => [i.id, i.customerName, i.date, i.salesOrderId, String(i.total), i.status]);
     container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Sales Invoices Book</h3>
-      </div>
+        <button id="si-csv-btn" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataSi;if(d)window.__exportCSV('sales-invoices.csv',["SI#","Customer","Date","SO#","Total","Status"],d)">📥 Export CSV</button>
+        </div>
       <div class="table-container">
         <table>
           <thead>
@@ -914,11 +935,13 @@ function renderInvoiceForm(container) {
 // --- 4. SALES RETURNS RENDERERS ---
 function renderReturnsList(container) {
     const returns = [...store.getSalesReturns()].reverse();
+    window.__csvDataSr = store.getSalesReturns().map((r) => [r.id, r.customerName, r.date, r.salesOrderId, String(r.total), r.status]);
     container.innerHTML = `
     <div class="card animate-fade-in">
       <div class="card-header">
         <h3 class="card-title">Customer Sales Returns Ledger</h3>
-        <button id="new-return-btn" class="btn btn-danger btn-sm">Record Return Refund</button>
+        <button id="sr-csv-btn" class="btn btn-outline btn-sm no-print" onclick="var d=window.__csvDataSr;if(d)window.__exportCSV('sales-returns.csv',["SR#","Customer","Date","SO#","Total","Status"],d)">📥 Export CSV</button>
+          <button id="new-return-btn" class="btn btn-danger btn-sm">Record Return Refund</button>
       </div>
       <div class="table-container">
         <table>
@@ -962,7 +985,6 @@ function renderReturnForm(container) {
         <h3 class="card-title">Process Sales Return</h3>
         <button onclick="window.location.hash='#o2c/returns'" class="btn btn-outline btn-sm">Cancel</button>
       </div>
-      
       <form id="sales-return-form">
         <div class="grid-2">
           <div class="form-group">
@@ -1083,7 +1105,7 @@ function renderDeliveryDetails(container, deliveryId) {
           <h3 class="card-title" style="margin-top: 4px;">Delivery Note details</h3>
         </div>
         <div style="display: flex; gap: 10px;">
-          <button onclick="window.location.hash='#o2c/deliveries'" class="btn btn-outline btn-sm">Back</button>
+          <button onclick="window.location.hash='#o2c/deliveries'" class="btn btn-outline btn-sm">Back</button> <button onclick="window.print()" class="btn btn-outline btn-sm no-print">🖨️ Print</button>
           ${isDraft && canApprove ? `<button id="submit-dn-btn" class="btn btn-primary btn-sm" style="background-color:var(--color-inventory);">Submit Delivery Note</button>` : ''}
           ${isDraft && canDelete ? `<button id="delete-dn-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
         </div>
@@ -1185,7 +1207,7 @@ function renderInvoiceDetails(container, invoiceId) {
           <h3 class="card-title" style="margin-top: 4px;">Sales Invoice details</h3>
         </div>
         <div style="display: flex; gap: 10px;">
-          <button onclick="window.location.hash='#o2c/invoices'" class="btn btn-outline btn-sm">Back</button>
+          <button onclick="window.location.hash='#o2c/invoices'" class="btn btn-outline btn-sm">Back</button> <button onclick="window.print()" class="btn btn-outline btn-sm no-print">🖨️ Print</button>
           ${isDraft && canApprove ? `<button id="submit-si-btn" class="btn btn-primary btn-sm">Submit Sales Invoice</button>` : ''}
           ${isDraft && canDelete ? `<button id="delete-si-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
           ${showPayBtn ? `<button id="proceed-payment-btn" class="btn btn-success btn-sm">+ Collect Cash Receipt</button>` : ''}

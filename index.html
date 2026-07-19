@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JMIT ERP - Enterprise Resource Planning System</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <!-- Google Fonts: Plus Jakarta Sans for premium typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,10 +119,23 @@
                 <a href="#accounting/fixed-assets" class="mega-link" data-route="accounting/fixed-assets">Fixed Assets</a>
               </div>
               <div class="mega-col">
-                <h4 class="mega-col-title">Reports</h4>
+                <h4 class="mega-col-title">Financial Reports</h4>
                 <a href="#reports/pl" class="mega-link" data-route="reports/pl">Profit &amp; Loss</a>
                 <a href="#reports/bs" class="mega-link" data-route="reports/bs">Balance Sheet</a>
                 <a href="#reports/valuation" class="mega-link" data-route="reports/valuation">Stock Valuation</a>
+                <a href="#reports/inventory" class="mega-link" data-route="reports/inventory">Inventory Analytics</a>
+                <a href="#reports/assets" class="mega-link" data-route="reports/assets">Fixed Assets</a>
+                <a href="#reports/dashboard" class="mega-link" data-route="reports/dashboard">Aging Dashboard</a>
+              </div>
+              <div class="mega-col">
+                <h4 class="mega-col-title">Aging &amp; Ledgers</h4>
+                <a href="#reports/ar-aging" class="mega-link" data-route="reports/ar-aging">AR Aging</a>
+                <a href="#reports/ap-aging" class="mega-link" data-route="reports/ap-aging">AP Aging</a>
+                <a href="#reports/so-aging" class="mega-link" data-route="reports/so-aging">SO Aging</a>
+                <a href="#reports/po-aging" class="mega-link" data-route="reports/po-aging">PO Aging</a>
+                <a href="#reports/payment-aging" class="mega-link" data-route="reports/payment-aging">Payment Ledger</a>
+                <a href="#reports/approvals" class="mega-link" data-route="reports/approvals">Pending Approvals</a>
+                <a href="#reports/soa" class="mega-link" data-route="reports/soa">Stmt of Account</a>
               </div>
             </div>
           </div>
@@ -178,6 +192,10 @@
         </div>
 
         <!-- Utility buttons -->
+        <button id="reload-btn" class="btn btn-outline btn-sm" title="Refresh View" onclick="location.reload()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          Reload
+        </button>
         <button id="reset-db-btn" class="btn btn-outline btn-sm" title="Reset Database">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
           Reset
@@ -237,6 +255,6 @@
   </div>
 
   <!-- Central Store & Routing Script Injection -->
-  <script type="module" src="dist/app.js?v=1784398965"></script>
+  <script type="module" src="dist/app.js?v=1784429784"></script>
 </body>
 </html>

@@ -216,6 +216,9 @@ function renderConfig(container) {
               <span style="font-size: 0.8rem; color: var(--text-secondary);">WHT Receivable (Asset)</span>
               <select name="whtAssetAccount" class="form-control">${accountOptions(maps.whtAssetAccount)}</select>
 
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Input VAT Receivable (Asset)</span>
+              <select name="inputVatAccount" class="form-control">${accountOptions(maps.inputVatAccount)}</select>
+
               <span style="font-size: 0.8rem; color: var(--text-secondary);">WHT Payable (Liability)</span>
               <select name="whtLiabilityAccount" class="form-control">${accountOptions(maps.whtLiabilityAccount)}</select>
 

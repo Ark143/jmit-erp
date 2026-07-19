@@ -1,6 +1,7 @@
 // JMIT ERP - Inventory, Warehouses & Stock Entries Module View (Phase 2)
 import { store } from "../store.js";
 import { formatMoney } from "../utils.js";
+import { renderInventoryLedger } from "./stock-ledger.js";
 export function renderInventory(container, pathParts) {
     const subPage = pathParts[1] || "items";
     const action = pathParts[2];
@@ -22,6 +23,9 @@ export function renderInventory(container, pathParts) {
         </button>
         <button class="settings-tab-btn ${subPage === 'categories' ? 'active' : ''}" onclick="window.location.hash='#inventory/categories'">
           🏷️ Categories
+        </button>
+        <button class="settings-tab-btn ${subPage === 'stock-ledger' ? 'active' : ''}" onclick="window.location.hash='#inventory/stock-ledger'">
+          📒 Stock Ledger
         </button>
       </div>
 
@@ -49,6 +53,9 @@ export function renderInventory(container, pathParts) {
     }
     else if (subPage === "categories") {
         renderCategories(viewport);
+    }
+    else if (subPage === "stock-ledger") {
+        renderInventoryLedger(viewport);
     }
 }
 // --- Shared item form (create + edit) ---

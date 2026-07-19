@@ -1,6 +1,7 @@
 // JMIT ERP - Real-Time Financial Statements & Reports View Module (Phase 2)
 import { store } from "../store.js";
 import { formatMoney } from "../utils.js";
+import { renderARAging, renderAPAging, renderPOAging, renderSOAging, renderPaymentAging, renderInventoryAnalytics, renderPendingApprovals, renderFixedAssetAnalytics, renderStatementOfAccount, renderAgingDashboard } from "./analytics.js";
 // Global selected company filter for reports
 let selectedCompanyFilter = "";
 export function renderReports(container, pathParts) {
@@ -28,6 +29,15 @@ export function renderReports(container, pathParts) {
           <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'pl' ? 'active' : ''}" data-report="pl">Profit & Loss</button>
           <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'bs' ? 'active' : ''}" data-report="bs">Balance Sheet</button>
           <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'valuation' ? 'active' : ''}" data-report="valuation">Stock Valuation</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'ar-aging' ? 'active' : ''}" data-report="ar-aging">AR Aging</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'ap-aging' ? 'active' : ''}" data-report="ap-aging">AP Aging</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'po-aging' ? 'active' : ''}" data-report="po-aging">PO Aging</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'payment-aging' ? 'active' : ''}" data-report="payment-aging">Payment Ledger</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'inventory' ? 'active' : ''}" data-report="inventory">Inventory</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'approvals' ? 'active' : ''}" data-report="approvals">Approvals</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'assets' ? 'active' : ''}" data-report="assets">Fixed Assets</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'soa' ? 'active' : ''}" data-report="soa">Stmt of Account</button>
+          <button class="btn btn-outline btn-sm sub-report-btn ${subReport === 'dashboard' ? 'active' : ''}" data-report="dashboard">Aging Dashboard</button>
         </div>
       </div>
 
@@ -60,6 +70,36 @@ function loadReport(reportType, viewport) {
     }
     else if (reportType === "valuation") {
         renderValuation(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "ar-aging") {
+        renderARAging(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "ap-aging") {
+        renderAPAging(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "po-aging") {
+        renderPOAging(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "so-aging") {
+        renderSOAging(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "payment-aging") {
+        renderPaymentAging(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "inventory") {
+        renderInventoryAnalytics(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "approvals") {
+        renderPendingApprovals(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "assets") {
+        renderFixedAssetAnalytics(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "soa") {
+        renderStatementOfAccount(viewport, selectedCompanyFilter);
+    }
+    else if (reportType === "dashboard") {
+        renderAgingDashboard(viewport, selectedCompanyFilter);
     }
 }
 // --- RECURSIVE COA BALANCE CALCULATOR BY COMPANY ---

@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "playwright": "^1.61.1",
     "typescript": "^5.7.0"
   },
   "keywords": [],

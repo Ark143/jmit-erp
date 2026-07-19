@@ -359,6 +359,18 @@ export interface Payment {
 
 // ─── Stock Movements ───
 
+export interface StockMovement {
+  id: string;           // "MOV-" + Date.now()
+  itemId: string;
+  date: string;
+  type: "IN" | "OUT";
+  qty: number;
+  warehouseId: string;
+  reference: string;    // document id (GRN-2026-001, DN-2026-001, etc.)
+  document: string;     // "GRN" | "DN"
+  balanceAfter: number; // running stock of the item in this warehouse after movement
+}
+
 export interface StockEntry {
   id: string;
   type: string;
@@ -410,6 +422,7 @@ export interface AppState {
   purchaseReturns: PurchaseReturn[];
   payments: Payment[];
   stockEntries: StockEntry[];
+  stockMovements: StockMovement[];
   journalEntries: JournalEntry[];
 }
 
