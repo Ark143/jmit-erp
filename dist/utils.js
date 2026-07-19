@@ -244,4 +244,20 @@ export function renderStockJournalPreview(items, srcWhName, destWhName, directio
     </div>
   `;
 }
+export class ChargeCalculator {
+    static calculate(ch, subtotal) {
+        const amt = Number(ch.amount) || 0;
+        const vatPct = Number(ch.vatRate) || 0;
+        const baseOn = ch.baseOn || 'net';
+        // Rate-only calculation: if amount is 0 and a percentage is specified, base it on subtotal
+        if (amt === 0 && vatPct > 0) {
+            const baseAmt = baseOn === 'gross' ? subtotal / (1 + vatPct / 100) : subtotal;
+            return parseFloat((baseAmt * (vatPct / 100)).toFixed(2));
+        }
+        // Normal amount-based calculation with optional tax/VAT component
+        const baseAmt = baseOn === 'gross' ? amt / (1 + vatPct / 100) : amt;
+        const taxAmt = parseFloat((baseAmt * (vatPct / 100)).toFixed(2));
+        return parseFloat((baseAmt + taxAmt).toFixed(2));
+    }
+}
 //# sourceMappingURL=utils.js.map

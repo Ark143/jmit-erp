@@ -1,6 +1,6 @@
 // JMIT ERP - Sales & Order-to-Cash (O2C) Full-Page Flow View Module
 import { store } from "../store.js";
-import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview } from "../utils.js";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview, ChargeCalculator } from "../utils.js";
 export function renderO2C(container, pathParts) {
     const subPage = pathParts[1] || "sales-orders";
     const action = pathParts[2];
@@ -284,13 +284,10 @@ function renderSalesOrderForm(container) {
             const chargeVatPct = Number(row.querySelector(".charge-vat").value) || 0;
             const acctCode = row.querySelector(".charge-acct").value;
             const baseOn = row.querySelector(".charge-base").value;
-            const baseAmt = baseOn === 'gross' ? amt / (1 + chargeVatPct / 100) : amt;
-            const chargeVat = parseFloat((baseAmt * (chargeVatPct / 100)).toFixed(2));
-            const chargeTotal = parseFloat((baseAmt + chargeVat).toFixed(2));
-            row.querySelector(".charge-total").textContent = formatMoney(chargeTotal);
-            // Checkbox routing: VAT/WHT/Other
             const isVat = row.querySelector(".charge-isvat").checked;
             const isWht = row.querySelector(".charge-iswht").checked;
+            const chargeTotal = ChargeCalculator.calculate({ amount: amt, vatRate: chargeVatPct, baseOn, isVat, isWht }, subtotal);
+            row.querySelector(".charge-total").textContent = formatMoney(chargeTotal);
             if (isVat) {
                 autoVat += chargeTotal;
             }

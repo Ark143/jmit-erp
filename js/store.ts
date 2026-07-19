@@ -1,5 +1,5 @@
 
-import { formatMoney } from "./utils";// JMIT ERP - Central State Store (Phase 3 CRUD Workflow Approvals & RBAC Master)
+import { formatMoney, ChargeCalculator } from "./utils";// JMIT ERP - Central State Store (Phase 3 CRUD Workflow Approvals & RBAC Master)
 
 const DEFAULT_STATE = {
   // System Configurations
@@ -933,15 +933,7 @@ class Store {
   // Shared: compute a charge row's total. Rate-only rows (amount 0, rate set)
   // apply the rate % against the reference subtotal.
   computeChargeTotal(ch, subtotal) {
-    const amt = Number(ch.amount) || 0;
-    const vatPct = Number(ch.vatRate) || 0;
-    const baseOn = ch.baseOn || 'net';
-    if (amt === 0 && vatPct > 0) {
-      const baseAmt = baseOn === 'gross' ? subtotal / (1 + vatPct / 100) : subtotal;
-      return parseFloat((baseAmt * vatPct / 100).toFixed(2));
-    }
-    const baseAmt = baseOn === 'gross' ? amt / (1 + vatPct / 100) : amt;
-    return parseFloat((baseAmt + (baseAmt * vatPct / 100)).toFixed(2));
+    return ChargeCalculator.calculate(ch, subtotal);
   }
 
   createSalesOrder(soData) {

@@ -1,6 +1,6 @@
 // JMIT ERP - Procurement & Procure-to-Pay (P2P) Full-Page Flow View Module
 import { store } from "../store";
-import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview } from "../utils";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview, ChargeCalculator } from "../utils";
 
 export function renderP2P(container, pathParts) {
   const subPage = pathParts[1] || "purchase-orders";
@@ -288,18 +288,12 @@ function renderPurchaseOrderForm(container) {
       const amt = Number((row.querySelector(".charge-amt") as HTMLInputElement).value) || 0;
       const vatPct = Number((row.querySelector(".charge-vat") as HTMLInputElement).value) || 0;
       const baseOn = (row.querySelector(".charge-base") as HTMLSelectElement).value;
-      let chTotal: number;
-      if (amt === 0 && vatPct > 0) {
-        const base = baseOn === "gross" ? subtotal / (1 + vatPct / 100) : subtotal;
-        chTotal = parseFloat((base * vatPct / 100).toFixed(2));
-      } else {
-        const baseAmt = baseOn === "gross" ? amt / (1 + vatPct / 100) : amt;
-        const vatPart = parseFloat((baseAmt * vatPct / 100).toFixed(2));
-        chTotal = parseFloat((baseAmt + vatPart).toFixed(2));
-      }
-      (row.querySelector(".charge-total") as HTMLElement).textContent = formatMoney(chTotal);
       const isVat = (row.querySelector(".charge-isvat") as HTMLInputElement).checked;
       const isWht = (row.querySelector(".charge-iswht") as HTMLInputElement).checked;
+
+      const chTotal = ChargeCalculator.calculate({ amount: amt, vatRate: vatPct, baseOn, isVat, isWht }, subtotal);
+      (row.querySelector(".charge-total") as HTMLElement).textContent = formatMoney(chTotal);
+      
       if (isVat) autoVat += chTotal;
       else if (isWht) autoWht += chTotal;
       else otherTotal += chTotal;
