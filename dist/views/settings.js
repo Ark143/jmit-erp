@@ -351,6 +351,14 @@ function renderConfig(container) {
                   </select>
                 </div>
               </div>
+              <div class="form-group" style="margin-top: 10px;">
+                <label class="form-label">Print Layout Header (HTML allowed)</label>
+                <textarea id="comp-print-header" class="form-control" placeholder="<div>Company Logo or Custom Header HTML</div>" style="font-family: monospace; font-size: 0.8rem; height: 60px;"></textarea>
+              </div>
+              <div class="form-group" style="margin-top: 10px;">
+                <label class="form-label">Print Layout Footer (HTML allowed)</label>
+                <textarea id="comp-print-footer" class="form-control" placeholder="<div>Terms & Conditions or Footer HTML</div>" style="font-family: monospace; font-size: 0.8rem; height: 60px;"></textarea>
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-outline modal-cancel">Cancel</button>
@@ -369,7 +377,9 @@ function renderConfig(container) {
                 name: ev.target.querySelector("#comp-name").value,
                 address: ev.target.querySelector("#comp-address").value,
                 taxId: ev.target.targetId || ev.target.querySelector("#comp-taxid").value,
-                currency: ev.target.querySelector("#comp-currency").value
+                currency: ev.target.querySelector("#comp-currency").value,
+                printHeaderHtml: ev.target.querySelector("#comp-print-header").value,
+                printFooterHtml: ev.target.querySelector("#comp-print-footer").value
             };
             store.addCompany(comp);
             window.showToast(`Company "${comp.name}" successfully registered.`, "success");
@@ -419,6 +429,14 @@ function renderConfig(container) {
                     </select>
                   </div>
                 </div>
+                <div class="form-group" style="margin-top: 10px;">
+                  <label class="form-label">Print Layout Header (HTML allowed)</label>
+                  <textarea id="comp-print-header" class="form-control" style="font-family: monospace; font-size: 0.8rem; height: 60px;">${company.printHeaderHtml || ""}</textarea>
+                </div>
+                <div class="form-group" style="margin-top: 10px;">
+                  <label class="form-label">Print Layout Footer (HTML allowed)</label>
+                  <textarea id="comp-print-footer" class="form-control" style="font-family: monospace; font-size: 0.8rem; height: 60px;">${company.printFooterHtml || ""}</textarea>
+                </div>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-outline modal-cancel">Cancel</button>
@@ -437,7 +455,9 @@ function renderConfig(container) {
                     name: ev.target.querySelector("#comp-name").value,
                     address: ev.target.querySelector("#comp-address").value,
                     taxId: ev.target.querySelector("#comp-taxid").value,
-                    currency: ev.target.querySelector("#comp-currency").value
+                    currency: ev.target.querySelector("#comp-currency").value,
+                    printHeaderHtml: ev.target.querySelector("#comp-print-header").value,
+                    printFooterHtml: ev.target.querySelector("#comp-print-footer").value
                 };
                 try {
                     store.editCompany(companyId, updated);

@@ -1,10 +1,11 @@
 // JMIT ERP - Inventory, Warehouses & Stock Entries Module View (Phase 2)
 import { store } from "../store.js";
-import { formatMoney } from "../utils.js";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderStockJournalPreview } from "../utils.js";
 import { renderInventoryLedger } from "./stock-ledger.js";
 export function renderInventory(container, pathParts) {
     const subPage = pathParts[1] || "items";
     const action = pathParts[2];
+    const paramId = pathParts[3];
     const html = `
     <div class="inventory-container animate-fade-in">
       <!-- Sub Tab Navigation -->
@@ -43,6 +44,9 @@ export function renderInventory(container, pathParts) {
     else if (subPage === "stock-entries") {
         if (action === "new") {
             renderStockEntryForm(viewport);
+        }
+        else if (action === "view" && paramId) {
+            renderStockEntryDetails(viewport, paramId);
         }
         else {
             renderStockEntriesList(viewport);
@@ -404,6 +408,8 @@ function renderStockEntriesList(container) {
               <th>Target Facility</th>
               <th>Items Adjusted</th>
               <th>Reason</th>
+              <th>Status</th>
+              <th class="no-print">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -411,7 +417,7 @@ function renderStockEntriesList(container) {
               <tr>
                 <td style="font-family: monospace; font-weight: 700; color: var(--color-inventory);">${se.id}</td>
                 <td>
-                  <span class="badge ${se.type === 'Receipt' ? 'badge-success' : se.type === 'Issue' ? 'badge-danger' : 'badge-pending'}">${se.type}</span>
+                  <span class="badge ${se.type === 'Receipt' ? 'badge-success' : 'badge-danger'}">${se.type}</span>
                 </td>
                 <td>${se.date}</td>
                 <td>${se.sourceWarehouseId ? store.getWarehouse(se.sourceWarehouseId).name : '-'}</td>
@@ -429,6 +435,12 @@ function renderStockEntriesList(container) {
     }).join(", ")}
                 </td>
                 <td><em class="text-secondary">${se.reason}</em></td>
+                <td>
+                  <span class="badge ${se.status === 'Submitted' ? 'badge-success' : 'badge-draft'}">${se.status}</span>
+                </td>
+                <td class="no-print">
+                  <a href="#inventory/stock-entries/view/${se.id}" class="btn btn-outline btn-sm">View Details</a>
+                </td>
               </tr>
             `).join("")}
           </tbody>
@@ -436,6 +448,108 @@ function renderStockEntriesList(container) {
       </div>
     </div>
   `;
+}
+function renderStockEntryDetails(container, entryId) {
+    const se = store.getStockEntries().find(s => s.id === entryId);
+    if (!se) {
+        container.innerHTML = `<div class="card"><p class="text-danger">Stock Entry not found.</p></div>`;
+        return;
+    }
+    const isDraft = se.status === "Draft";
+    const canApprove = store.checkPermission("inventory", "approve");
+    const srcWhName = se.sourceWarehouseId ? store.getWarehouse(se.sourceWarehouseId).name : "N/A";
+    const targetWhName = se.targetWarehouseId ? store.getWarehouse(se.targetWarehouseId).name : "N/A";
+    const direction = se.type === "Receipt" ? "IN" : se.type === "Issue" ? "OUT" : "TRANSFER";
+    container.innerHTML = `
+    <div class="card animate-fade-in">
+      ${getPrintHeaderHtml()}
+      <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <span style="font-size: 0.8rem; color: var(--color-inventory); font-family: monospace; font-weight: 700;">${se.id}</span>
+          <h3 class="card-title" style="margin-top: 4px;">Stock Entry details</h3>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="window.location.hash='#inventory/stock-entries'" class="btn btn-outline btn-sm">Back</button>
+          <button onclick="window.print()" class="btn btn-outline btn-sm no-print">🖨️ Print</button>
+          ${isDraft && canApprove ? `<button id="submit-se-btn" class="btn btn-primary btn-sm" style="background-color: var(--color-inventory);">Submit Stock Entry</button>` : ''}
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Movement details</div>
+          <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Reason: ${se.reason || 'N/A'}</div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Type:</span>
+            <span class="badge ${se.type === 'Receipt' ? 'badge-success' : se.type === 'Issue' ? 'badge-danger' : 'badge-pending'}">${se.type}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Posting Date:</span>
+            <strong>${se.date}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Source Facility:</span>
+            <strong>${srcWhName}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Target Facility:</span>
+            <strong>${targetWhName}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span class="text-secondary">Status:</span>
+            <span class="badge ${se.status === 'Submitted' ? 'badge-success' : 'badge-draft'}">${se.status}</span>
+          </div>
+        </div>
+      </div>
+
+      <h4 style="font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 10px;">Adjusted Items</h4>
+      <div class="table-container" style="margin-bottom: 24px;">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Description</th>
+              <th>UOM</th>
+              ${se.type === 'Receipt' ? '<th>Accepted Qty</th><th>Rejected Qty</th>' : '<th>Qty</th>'}
+            </tr>
+          </thead>
+          <tbody>
+            ${se.items.map(item => `
+              <tr>
+                <td style="font-family: monospace; font-weight: 600;">${store.getItem(item.itemId)?.sku || 'Product'}</td>
+                <td><strong>${store.getItem(item.itemId)?.name || 'Product'}</strong></td>
+                <td>${item.uom || 'pcs'}</td>
+                ${se.type === 'Receipt' ? `
+                  <td style="font-weight: 700; color:var(--color-success);">${item.acceptedQty}</td>
+                  <td style="font-weight: 700; color:var(--color-danger);">${item.rejectedQty}</td>
+                ` : `
+                  <td style="font-weight: 700;">${item.qty}</td>
+                `}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      ${renderStockJournalPreview(se.items, srcWhName, targetWhName, direction)}
+      ${getPrintFooterHtml()}
+      ${renderAuditTrailSection(se)}
+    </div>
+  `;
+    if (isDraft && canApprove) {
+        container.querySelector("#submit-se-btn").addEventListener("click", () => {
+            try {
+                store.submitStockEntry(se.id);
+                window.showToast(`Stock Entry ${se.id} submitted successfully.`, "success");
+                renderStockEntryDetails(container, entryId);
+            }
+            catch (err) {
+                window.showToast(err.message, "danger");
+            }
+        });
+    }
 }
 function renderStockEntryForm(container) {
     const warehouses = store.getWarehouses();

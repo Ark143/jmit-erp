@@ -834,6 +834,10 @@ tr:hover td {
   .modal-content { width: 100%; padding: 16px; }
 }
 
+.print-header, .print-footer {
+  display: none;
+}
+
 /* =================================================================
    PRINT — document / receipt output
    Hides chrome, shows clean document content for window.print()
@@ -845,7 +849,19 @@ tr:hover td {
   .btn, .modal-overlay, .toast-container,
   #login-overlay, .no-print, .print-hide { display: none !important; }
 
+  .print-header, .print-footer {
+    display: block !important;
+  }
+
   html, body {
+    --text-primary: #111111 !important;
+    --text-secondary: #333333 !important;
+    --text-muted: #666666 !important;
+    --color-primary: #000000 !important;
+    --border-color: #dddddd !important;
+    --bg-card: #ffffff !important;
+    --bg-app: #ffffff !important;
+
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;

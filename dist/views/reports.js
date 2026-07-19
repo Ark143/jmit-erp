@@ -1,6 +1,6 @@
 // JMIT ERP - Real-Time Financial Statements & Reports View Module (Phase 2)
 import { store } from "../store.js";
-import { formatMoney } from "../utils.js";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml } from "../utils.js";
 import { renderARAging, renderAPAging, renderPOAging, renderSOAging, renderPaymentAging, renderInventoryAnalytics, renderPendingApprovals, renderFixedAssetAnalytics, renderStatementOfAccount, renderAgingDashboard } from "./analytics.js";
 // Global selected company filter for reports
 let selectedCompanyFilter = "";
@@ -146,6 +146,7 @@ function renderPL(viewport, companyId) {
     const compName = compObj ? compObj.name : "Consolidated Group Org";
     viewport.innerHTML = `
     <div class="card report-sheet animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="report-header">
         <div class="report-org">${compName}</div>
         <h3>Profit & Loss Statement (Income Statement)</h3>
@@ -193,6 +194,7 @@ function renderPL(viewport, companyId) {
           <span>${formatMoney(netIncome)}</span>
         </div>
       </div>
+      ${getPrintFooterHtml()}
     </div>
   `;
 }
@@ -221,6 +223,7 @@ function renderBS(viewport, companyId) {
     const compName = compObj ? compObj.name : "Consolidated Group Org";
     viewport.innerHTML = `
     <div class="card report-sheet animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="report-header">
         <div class="report-org">${compName}</div>
         <h3>Corporate Balance Sheet Statement</h3>
@@ -310,6 +313,7 @@ function renderBS(viewport, companyId) {
           </div>
         `}
       </div>
+      ${getPrintFooterHtml()}
     </div>
   `;
 }
@@ -319,6 +323,7 @@ function renderValuation(viewport, companyId) {
     let totalAssetSum = 0;
     viewport.innerHTML = `
     <div class="card report-sheet animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="report-header">
         <div class="report-org">JMIT Enterprises Inc.</div>
         <h3>Inventory Valuation Analysis Report</h3>
@@ -367,6 +372,7 @@ function renderValuation(viewport, companyId) {
           </tbody>
         </table>
       </div>
+      ${getPrintFooterHtml()}
     </div>
   `;
 }

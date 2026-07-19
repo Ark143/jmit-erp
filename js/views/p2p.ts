@@ -1,6 +1,6 @@
 // JMIT ERP - Procurement & Procure-to-Pay (P2P) Full-Page Flow View Module
 import { store } from "../store";
-import { formatMoney } from "../utils";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview } from "../utils";
 
 export function renderP2P(container, pathParts) {
   const subPage = pathParts[1] || "purchase-orders";
@@ -970,20 +970,7 @@ function renderPurchaseReturnForm(container) {
 function renderPurchaseOrderDetails(container, orderId) {
   const po = store.getPurchaseOrders().find(p => p.id === orderId);
   if (!po) {
-    const maps = store.getSettings().glMappings;
-    const sub = (po as any).subtotal || 0;
-    const tax = (po as any).tax || 0;
-    const wht = (po as any).wht || 0;
-    const other = (po as any).otherChargesTotal || 0;
-    const cogs = po.items.reduce((s,i)=>s+(store.getItem(i.itemId)?.cost||0)*i.qty,0);
-    const lines = [
-      {code:maps.inventoryAccount,debit:cogs,credit:0},
-      {code:maps.inputVatAccount||"1220",debit:tax,credit:0}
-    ];
-    if(other>0) lines.push({code:maps.opexAccount,debit:other,credit:0});
-    lines.push({code:maps.apAccount,debit:0,credit:sub+tax-wht+other});
-    lines.push({code:maps.whtLiabilityAccount,debit:0,credit:wht});
-  container.innerHTML = `<div class="card"><p class="text-danger">Order not found.</p></div>`;
+    container.innerHTML = `<div class="card"><p class="text-danger">Order not found.</p></div>`;
     return;
   }
 
@@ -997,6 +984,7 @@ function renderPurchaseOrderDetails(container, orderId) {
 
   container.innerHTML = `
     <div class="card animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
           <span style="font-size: 0.8rem; color: var(--color-primary); font-family: monospace; font-weight: 700;">${po.id}</span>
@@ -1004,6 +992,7 @@ function renderPurchaseOrderDetails(container, orderId) {
         </div>
         <div style="display: flex; gap: 10px;">
           <button onclick="window.location.hash='#p2p/purchase-orders'" class="btn btn-outline btn-sm">Back</button>
+          <button onclick="window.print()" class="btn btn-outline btn-sm no-print">🖨️ Print</button>
           ${isDraft && canApprove ? `<button id="approve-po-btn" class="btn btn-primary btn-sm">Approve Purchase Order</button>` : ''}
           ${isDraft && canDelete ? `<button id="delete-po-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
           ${showReceiveBtn ? `<button id="proceed-receive-btn" class="btn btn-primary btn-sm" style="background-color: var(--color-inventory);">Receive Goods</button>` : ''}
@@ -1015,7 +1004,8 @@ function renderPurchaseOrderDetails(container, orderId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Vendor Supplier</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${po.vendorName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(po.vendorId)?.taxId || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Address: ${store.getPartner(po.vendorId)?.address || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 2px; color: var(--text-secondary);">TIN: ${store.getPartner(po.vendorId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
@@ -1067,6 +1057,8 @@ function renderPurchaseOrderDetails(container, orderId) {
           <span class="text-success">${formatMoney(po.total)}</span>
         </div>
       </div>
+      ${getPrintFooterHtml()}
+      ${renderAuditTrailSection(po)}
     </div>
   `;
 
@@ -1119,6 +1111,7 @@ function renderGoodsReceiptDetails(container, grnId) {
 
   container.innerHTML = `
     <div class="card animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
           <span style="font-size: 0.8rem; color: var(--color-inventory); font-family: monospace; font-weight: 700;">${grn.id}</span>
@@ -1126,6 +1119,7 @@ function renderGoodsReceiptDetails(container, grnId) {
         </div>
         <div style="display: flex; gap: 10px;">
           <button onclick="window.location.hash='#p2p/goods-receipts'" class="btn btn-outline btn-sm">Back</button>
+          <button onclick="window.print()" class="btn btn-outline btn-sm no-print">🖨️ Print</button>
           ${isDraft && canApprove ? `<button id="submit-grn-btn" class="btn btn-primary btn-sm" style="background-color:var(--color-inventory);">Submit Goods Receipt</button>` : ''}
           ${isDraft && canDelete ? `<button id="delete-grn-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
         </div>
@@ -1135,7 +1129,8 @@ function renderGoodsReceiptDetails(container, grnId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Vendor Supplier</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${grn.vendorName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(grn.vendorId)?.taxId || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Address: ${store.getPartner(grn.vendorId)?.address || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 2px; color: var(--text-secondary);">TIN: ${store.getPartner(grn.vendorId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
@@ -1158,7 +1153,7 @@ function renderGoodsReceiptDetails(container, grnId) {
       </div>
 
       <h4 style="font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 10px;">Items Inspected & Stocked</h4>
-      <div class="table-container">
+      <div class="table-container" style="margin-bottom: 24px;">
         <table>
           <thead>
             <tr>
@@ -1182,6 +1177,10 @@ function renderGoodsReceiptDetails(container, grnId) {
           </tbody>
         </table>
       </div>
+
+      ${renderStockJournalPreview(grn.items, "Supplier Facility", store.getWarehouse(grn.warehouseId).name, "IN")}
+      ${getPrintFooterHtml()}
+      ${renderAuditTrailSection(grn)}
     </div>
   `;
 
@@ -1224,8 +1223,18 @@ function renderPurchaseInvoiceDetails(container, invoiceId) {
   
   const showPayBtn = pi.status === "Unpaid" && store.checkPermission("finance", "create");
 
+  // Get accounting entries for preview or posted
+  let jeLines: any[] = [];
+  if (isDraft) {
+    jeLines = store.getPurchaseInvoiceJELines(pi);
+  } else {
+    const postedJe = store.getJournalEntries().find((je: any) => je.reference.includes(pi.id));
+    if (postedJe) jeLines = postedJe.lines;
+  }
+
   container.innerHTML = `
     <div class="card animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
           <span style="font-size: 0.8rem; color: var(--color-primary); font-family: monospace; font-weight: 700;">${pi.id}</span>
@@ -1233,6 +1242,7 @@ function renderPurchaseInvoiceDetails(container, invoiceId) {
         </div>
         <div style="display: flex; gap: 10px;">
           <button onclick="window.location.hash='#p2p/invoices'" class="btn btn-outline btn-sm">Back</button>
+          <button onclick="window.print()" class="btn btn-outline btn-sm no-print">🖨️ Print</button>
           ${isDraft && canApprove ? `<button id="submit-pi-btn" class="btn btn-primary btn-sm">Submit Bill (Post GL)</button>` : ''}
           ${isDraft && canDelete ? `<button id="delete-pi-btn" class="btn btn-danger btn-sm">Cancel & Delete</button>` : ''}
           ${showPayBtn ? `<button id="proceed-payment-btn" class="btn btn-warning btn-sm">Pay Supplier Bill</button>` : ''}
@@ -1243,7 +1253,8 @@ function renderPurchaseInvoiceDetails(container, invoiceId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Vendor Supplier</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${pi.vendorName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(pi.vendorId)?.taxId || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Address: ${store.getPartner(pi.vendorId)?.address || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 2px; color: var(--text-secondary);">TIN: ${store.getPartner(pi.vendorId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
@@ -1299,6 +1310,10 @@ function renderPurchaseInvoiceDetails(container, invoiceId) {
           <span class="text-success">${formatMoney(pi.total)}</span>
         </div>
       </div>
+
+      ${renderJEPreview(jeLines)}
+      ${getPrintFooterHtml()}
+      ${renderAuditTrailSection(pi)}
     </div>
   `;
 

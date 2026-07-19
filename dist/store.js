@@ -4,8 +4,8 @@ const DEFAULT_STATE = {
     settings: {
         activeCompany: "CMP001",
         companies: [
-            { id: "CMP001", name: "JMIT Enterprises Inc.", taxId: "111-222-333", address: "HQ Manila, Port Area, PH", taxIdType: "TIN", currency: "PHP" },
-            { id: "CMP002", name: "JMIT Logistics Cebu", taxId: "444-555-666", address: "IT Park Tower 2, Cebu City, PH", taxIdType: "TIN", currency: "PHP" }
+            { id: "CMP001", name: "JMIT Enterprises Inc.", taxId: "111-222-333", address: "HQ Manila, Port Area, PH", taxIdType: "TIN", currency: "PHP", printHeaderHtml: "", printFooterHtml: "" },
+            { id: "CMP002", name: "JMIT Logistics Cebu", taxId: "444-555-666", address: "IT Park Tower 2, Cebu City, PH", taxIdType: "TIN", currency: "PHP", printHeaderHtml: "", printFooterHtml: "" }
         ],
         activeCurrency: "PHP",
         exchangeRates: {
@@ -331,6 +331,22 @@ class Store {
                     this.state.stockMovements = [];
                     this.saveState();
                 }
+                // Migrate: ensure printHeaderHtml and printFooterHtml exist for all companies
+                if (this.state.settings.companies) {
+                    let companyMigrated = false;
+                    this.state.settings.companies.forEach((c) => {
+                        if (c.printHeaderHtml === undefined) {
+                            c.printHeaderHtml = "";
+                            companyMigrated = true;
+                        }
+                        if (c.printFooterHtml === undefined) {
+                            c.printFooterHtml = "";
+                            companyMigrated = true;
+                        }
+                    });
+                    if (companyMigrated)
+                        this.saveState();
+                }
             }
             else {
                 this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -354,6 +370,109 @@ class Store {
     resetDatabase() {
         this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
         this.saveState();
+    }
+    logAudit(doc, action) {
+        if (!doc.auditTrail)
+            doc.auditTrail = [];
+        const user = this.getCurrentUser();
+        doc.auditTrail.push({
+            action,
+            user: user ? user.name : "System",
+            timestamp: new Date().toLocaleString()
+        });
+    }
+    getSalesInvoiceJELines(si) {
+        const so = this.state.salesOrders.find((s) => s.id === si.salesOrderId);
+        const maps = this.state.settings.glMappings;
+        const currency = so ? so.currency : "PHP";
+        const baseTotal = this.convertToBase(si.total, currency);
+        const baseSubtotal = this.convertToBase(si.subtotal, currency);
+        const baseTax = this.convertToBase(si.tax, currency);
+        const baseWht = this.convertToBase(si.withholding, currency);
+        // Compute COGS
+        let totalCogs = 0;
+        si.items.forEach((line) => {
+            const prod = this.getItem(line.itemId);
+            if (prod)
+                totalCogs += prod.cost * line.qty;
+        });
+        const jeLines = [
+            { code: maps.arAccount, debit: baseTotal, credit: 0 },
+            { code: maps.whtAssetAccount, debit: baseWht, credit: 0 },
+            { code: si.salesAccountCode || maps.salesAccount, debit: 0, credit: baseSubtotal },
+            { code: maps.taxAccount, debit: 0, credit: baseTax }
+        ];
+        (si.otherCharges || []).forEach((ch) => {
+            if (ch.isVat || ch.isWht)
+                return;
+            const chTotal = this.convertToBase(this.computeChargeTotal(ch, si.subtotal), currency);
+            if (chTotal > 0) {
+                jeLines.push({ code: ch.accountCode || maps.defaultOtherChargesAccount, debit: 0, credit: chTotal });
+            }
+        });
+        jeLines.push({ code: maps.cogsAccount, debit: totalCogs, credit: 0 });
+        jeLines.push({ code: maps.inventoryAccount, debit: 0, credit: totalCogs });
+        return jeLines.filter(l => l.debit > 0 || l.credit > 0);
+    }
+    getPurchaseInvoiceJELines(pi) {
+        const po = this.state.purchaseOrders.find((p) => p.id === pi.purchaseOrderId);
+        if (!po)
+            return [];
+        const grn = this.state.goodsReceipts.find((g) => g.purchaseOrderId === po.id);
+        if (!grn)
+            return [];
+        const maps = this.state.settings.glMappings;
+        const baseTotal = this.convertToBase(po.total, po.currency);
+        // Calculate accepted vs rejected values
+        let acceptedCost = 0;
+        let rejectedCost = 0;
+        grn.items.forEach((line) => {
+            const item = this.getItem(line.itemId);
+            const cost = item ? item.cost : 0;
+            acceptedCost += cost * line.acceptedQty;
+            rejectedCost += cost * line.rejectedQty;
+        });
+        const baseAccepted = this.convertToBase(acceptedCost, po.currency);
+        const baseRejected = this.convertToBase(rejectedCost, po.currency);
+        const baseTax = this.convertToBase(po.tax || 0, po.currency);
+        const baseWht = this.convertToBase(po.wht || 0, po.currency);
+        let baseOther = 0;
+        (po.otherCharges || []).forEach((ch) => {
+            if (!ch.isVat && !ch.isWht) {
+                baseOther += this.convertToBase(this.computeChargeTotal(ch, po.subtotal || baseAccepted), po.currency);
+            }
+        });
+        const jeLines = [
+            { code: maps.inventoryAccount, debit: baseAccepted, credit: 0 },
+            { code: maps.inputVatAccount || "1220", debit: baseTax, credit: 0 }
+        ];
+        if (baseOther > 0) {
+            jeLines.push({ code: maps.opexAccount, debit: baseOther, credit: 0 });
+        }
+        jeLines.push({ code: maps.apAccount, debit: 0, credit: baseTotal + baseWht });
+        jeLines.push({ code: maps.whtLiabilityAccount, debit: 0, credit: baseWht });
+        if (baseRejected > 0) {
+            jeLines.push({ code: maps.opexAccount, debit: baseRejected, credit: 0 });
+        }
+        return jeLines.filter(l => l.debit > 0 || l.credit > 0);
+    }
+    getPaymentEntryJELines(pay) {
+        const maps = this.state.settings.glMappings;
+        const baseAmt = this.convertToBase(pay.amount, pay.currency);
+        let jeLines = [];
+        if (pay.type === "Receive") {
+            jeLines = [
+                { code: maps.cashAccount, debit: baseAmt, credit: 0 },
+                { code: maps.arAccount, debit: 0, credit: baseAmt }
+            ];
+        }
+        else {
+            jeLines = [
+                { code: maps.apAccount, debit: baseAmt, credit: 0 },
+                { code: maps.cashAccount, debit: 0, credit: baseAmt }
+            ];
+        }
+        return jeLines.filter(l => l.debit > 0 || l.credit > 0);
     }
     // --- GETTERS ---
     getSettings() { return this.state.settings; }
@@ -540,6 +659,7 @@ class Store {
             throw new Error("Workflow Constraint: Only Draft items can be modified");
         }
         Object.assign(doc, updatedFields);
+        this.logAudit(doc, "Modified");
         this.saveState();
     }
     // Search details
@@ -846,6 +966,10 @@ class Store {
             status: (reqs.soApproval === false) ? "Approved" : "Draft"
         };
         this.state.salesOrders.push(newSo);
+        this.logAudit(newSo, "Created");
+        if (reqs.soApproval === false) {
+            this.logAudit(newSo, "Approved");
+        }
         this.saveState();
         return newSo;
     }
@@ -858,6 +982,7 @@ class Store {
         if (so.status !== "Draft")
             throw new Error("Only Draft sales orders can be approved");
         so.status = "Approved";
+        this.logAudit(so, "Approved");
         this.saveState();
     }
     // --- 2. DELIVERY NOTE WORKFLOW ---
@@ -905,6 +1030,10 @@ class Store {
             so.status = "Delivered";
         }
         this.state.deliveries.push(newDn);
+        this.logAudit(newDn, "Created");
+        if (reqs.dnSubmission === false) {
+            this.logAudit(newDn, "Submitted");
+        }
         this.saveState();
         return newDn;
     }
@@ -933,6 +1062,7 @@ class Store {
             this.recordMovement(line.itemId, dn.date, "OUT", line.qty, dn.warehouseId, dn.id, "DN");
         });
         dn.status = "Submitted";
+        this.logAudit(dn, "Submitted");
         // Auto update SO status
         const so = this.state.salesOrders.find(s => s.id === dn.salesOrderId);
         if (so) {
@@ -1009,6 +1139,10 @@ class Store {
             so.status = "Closed";
         }
         this.state.salesInvoices.push(newSi);
+        this.logAudit(newSi, "Created");
+        if (reqs.siSubmission === false) {
+            this.logAudit(newSi, "Submitted");
+        }
         this.saveState();
         return newSi;
     }
@@ -1061,6 +1195,7 @@ class Store {
         });
         si.status = "Unpaid";
         so.status = "Closed";
+        this.logAudit(si, "Submitted");
         this.saveState();
     }
     createSalesReturn(srData) {
@@ -1121,6 +1256,8 @@ class Store {
         };
         si.status = "Returned";
         this.state.salesReturns.push(newSr);
+        this.logAudit(newSr, "Created");
+        this.logAudit(newSr, "Submitted");
         this.saveState();
         return newSr;
     }
@@ -1175,6 +1312,10 @@ class Store {
             total, status: (reqs.poApproval === false) ? "Approved" : "Draft"
         };
         this.state.purchaseOrders.push(newPo);
+        this.logAudit(newPo, "Created");
+        if (reqs.poApproval === false) {
+            this.logAudit(newPo, "Approved");
+        }
         this.saveState();
         return newPo;
     }
@@ -1187,6 +1328,7 @@ class Store {
         if (po.status !== "Draft")
             throw new Error("Only Draft purchase orders can be approved");
         po.status = "Approved";
+        this.logAudit(po, "Approved");
         this.saveState();
     }
     // --- 5. GOODS RECEIPT NOTE WORKFLOW ---
@@ -1228,6 +1370,10 @@ class Store {
             po.status = "Received";
         }
         this.state.goodsReceipts.push(newGrn);
+        this.logAudit(newGrn, "Created");
+        if (reqs.grnSubmission === false) {
+            this.logAudit(newGrn, "Submitted");
+        }
         this.saveState();
         return newGrn;
     }
@@ -1250,6 +1396,7 @@ class Store {
             }
         });
         grn.status = "Submitted";
+        this.logAudit(grn, "Submitted");
         const po = this.state.purchaseOrders.find(p => p.id === grn.purchaseOrderId);
         if (po) {
             po.status = "Received";
@@ -1326,6 +1473,10 @@ class Store {
             po.status = "Billed";
         }
         this.state.purchaseInvoices.push(newPi);
+        this.logAudit(newPi, "Created");
+        if (reqs.piSubmission === false) {
+            this.logAudit(newPi, "Submitted");
+        }
         this.saveState();
         return newPi;
     }
@@ -1385,6 +1536,7 @@ class Store {
         });
         pi.status = "Unpaid";
         po.status = "Billed";
+        this.logAudit(pi, "Submitted");
         this.saveState();
     }
     createPurchaseReturn(prData) {
@@ -1440,6 +1592,8 @@ class Store {
         };
         pi.status = "Returned";
         this.state.purchaseReturns.push(newPr);
+        this.logAudit(newPr, "Created");
+        this.logAudit(newPr, "Submitted");
         this.saveState();
         return newPr;
     }
@@ -1514,6 +1668,10 @@ class Store {
             });
         }
         this.state.payments.push(newPay);
+        this.logAudit(newPay, "Created");
+        if (reqs.paymentSubmission === false) {
+            this.logAudit(newPay, "Submitted");
+        }
         this.saveState();
         return newPay;
     }
@@ -1559,6 +1717,7 @@ class Store {
             status: "Posted"
         });
         pay.status = "Posted";
+        this.logAudit(pay, "Submitted");
         this.saveState();
     }
     // --- 8. STOCK ENTRY WORKFLOW ---
@@ -1581,6 +1740,7 @@ class Store {
             status: "Draft"
         };
         this.state.stockEntries.push(newSe);
+        this.logAudit(newSe, "Created");
         this.saveState();
         if (reqs.journalSubmission === false) {
             // Auto submit stock entry directly
@@ -1659,6 +1819,7 @@ class Store {
             }
         });
         se.status = "Submitted";
+        this.logAudit(se, "Submitted");
         this.saveState();
     }
     // --- 9. FIXED ASSETS & DEPRECIATION ---

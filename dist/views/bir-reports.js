@@ -2,17 +2,20 @@
 // 7 BIR-mandated reports: Cash Disbursement, General Ledger, Expense Journal,
 // Tax Journal, VAT Cash Receipt, VAT Sales Journal, Subsidiary Ledger
 import { store } from "../store.js";
-import { formatMoney } from "../utils.js";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml } from "../utils.js";
 // ─── shared helpers ───
 function birTable(title, subtitle, columns, body) {
     return `<div class="card animate-fade-in">
+    ${getPrintHeaderHtml()}
     <div class="card-header"><h3 class="card-title">${title}</h3>
       <div class="no-print"><button onclick="window.print()" class="btn btn-outline btn-sm">🖨️ Print</button></div></div>
     <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:12px;">${subtitle}</p>
     <div class="table-container"><table class="bir-report">
       <thead><tr>${columns.map(c => `<th>${c}</th>`).join("")}</tr></thead>
       <tbody>${body || '<tr><td colspan="' + columns.length + '" style="text-align:center;padding:24px;">No records for this period</td></tr>'}</tbody>
-    </table></div></div>`;
+    </table></div>
+    ${getPrintFooterHtml()}
+  </div>`;
 }
 // ─── 1. BIR CASH DISBURSEMENT JOURNAL ───
 export function renderBIRCashDisbursement(container) {

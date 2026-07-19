@@ -1,9 +1,10 @@
 // JMIT ERP - Treasury Payments & Fixed Assets View Module (Phase 2)
 import { store } from "../store.js";
-import { formatMoney } from "../utils.js";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview } from "../utils.js";
 export function renderFinance(container, pathParts) {
     const subRoute = pathParts[1] || "payments";
     const action = pathParts[2];
+    const paramId = pathParts[3];
     const html = `
     <div class="finance-container animate-fade-in">
       <!-- Sub Tab Nav -->
@@ -24,6 +25,9 @@ export function renderFinance(container, pathParts) {
     if (subRoute === "payments") {
         if (action === "new") {
             renderPaymentForm(viewport);
+        }
+        else if (action === "view" && paramId) {
+            renderPaymentDetails(viewport, paramId);
         }
         else {
             renderPaymentsList(viewport);
@@ -64,6 +68,8 @@ function renderPaymentsList(container) {
               <th>Reference Details</th>
               <th>Amount ($)</th>
               <th>Currency</th>
+              <th>Status</th>
+              <th class="no-print">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -78,6 +84,12 @@ function renderPaymentsList(container) {
                 <td>${p.reference}</td>
                 <td style="font-weight: 700;">${formatMoney(p.amount)}</td>
                 <td><span class="badge badge-draft">${p.currency}</span> (Rate: ${p.rate})</td>
+                <td>
+                  <span class="badge ${p.status === 'Posted' ? 'badge-success' : 'badge-draft'}">${p.status}</span>
+                </td>
+                <td class="no-print">
+                  <a href="#accounting/payments/view/${p.id}" class="btn btn-outline btn-sm">View Details</a>
+                </td>
               </tr>
             `).join("")}
           </tbody>
@@ -457,5 +469,85 @@ function renderFixedAssets(container) {
             modalMount.querySelector(".modal-cancel").addEventListener("click", close);
         });
     });
+}
+function renderPaymentDetails(container, paymentId) {
+    const pay = store.getPayments().find(p => p.id === paymentId);
+    if (!pay) {
+        container.innerHTML = `<div class="card"><p class="text-danger">Payment Entry not found.</p></div>`;
+        return;
+    }
+    const isDraft = pay.status === "Draft";
+    const canApprove = store.checkPermission("finance", "approve");
+    // Get accounting entries for preview or posted
+    let jeLines = [];
+    if (isDraft) {
+        jeLines = store.getPaymentEntryJELines(pay);
+    }
+    else {
+        const postedJe = store.getJournalEntries().find((je) => je.reference.includes(pay.id));
+        if (postedJe)
+            jeLines = postedJe.lines;
+    }
+    container.innerHTML = `
+    <div class="card animate-fade-in">
+      ${getPrintHeaderHtml()}
+      <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <span style="font-size: 0.8rem; color: var(--color-primary); font-family: monospace; font-weight: 700;">${pay.id}</span>
+          <h3 class="card-title" style="margin-top: 4px;">Payment Entry details</h3>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="window.location.hash='#accounting/payments'" class="btn btn-outline btn-sm">Back</button>
+          <button onclick="window.print()" class="btn btn-outline btn-sm no-print">🖨️ Print</button>
+          ${isDraft && canApprove ? `<button id="submit-pay-btn" class="btn btn-primary btn-sm">Post Payment Entry</button>` : ''}
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Partner Business</div>
+          <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${pay.partnerName}</div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Payment Type:</span>
+            <span class="badge ${pay.type === 'Receive' ? 'badge-success' : 'badge-danger'}">${pay.type}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Posting Date:</span>
+            <strong>${pay.date}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Reference Details:</span>
+            <strong>${pay.reference || 'N/A'}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="text-secondary">Amount Value:</span>
+            <strong>${formatMoney(pay.amount)} (${pay.currency} @ ${pay.rate})</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span class="text-secondary">Status:</span>
+            <span class="badge ${pay.status === 'Posted' ? 'badge-success' : 'badge-draft'}">${pay.status}</span>
+          </div>
+        </div>
+      </div>
+
+      ${renderJEPreview(jeLines)}
+      ${getPrintFooterHtml()}
+      ${renderAuditTrailSection(pay)}
+    </div>
+  `;
+    if (isDraft && canApprove) {
+        container.querySelector("#submit-pay-btn").addEventListener("click", () => {
+            try {
+                store.submitPaymentEntry(pay.id);
+                window.showToast(`Payment entry ${pay.id} posted successfully.`, "success");
+                renderPaymentDetails(container, paymentId);
+            }
+            catch (err) {
+                window.showToast(err.message, "danger");
+            }
+        });
+    }
 }
 //# sourceMappingURL=finance.js.map

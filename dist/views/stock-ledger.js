@@ -1,5 +1,5 @@
-// JMIT ERP - Stock Ledger view (per-item movement history with running balance)
 import { store } from "../store.js";
+import { getPrintHeaderHtml, getPrintFooterHtml } from "../utils.js";
 export function renderInventoryLedger(container) {
     const items = store.getItems();
     const movements = store.getStockMovements() || [];
@@ -44,10 +44,14 @@ export function renderInventoryLedger(container) {
         });
         content.innerHTML = filtered.length === 0
             ? `<div class="card" style="text-align:center;padding:40px;"><p class="text-muted">No stock movements yet. Create a Goods Receipt or Delivery Note to populate the ledger.</p></div>`
-            : `<div class="card"><div class="table-container"><table>
-        <thead><tr><th>Date</th><th>Item / SKU</th><th>Qty</th><th>Balance</th><th>Warehouse</th><th>Reference</th><th>Doc</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div></div>`;
+            : `<div class="card">
+          ${getPrintHeaderHtml()}
+          <div class="table-container"><table>
+            <thead><tr><th>Date</th><th>Item / SKU</th><th>Qty</th><th>Balance</th><th>Warehouse</th><th>Reference</th><th>Doc</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table></div>
+          ${getPrintFooterHtml()}
+        </div>`;
     }
     const itemOptions = items.map(i => `<option value="${i.id}">${i.name} (${i.sku})</option>`).join("");
     const whOptions = warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join("");

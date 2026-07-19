@@ -1,6 +1,6 @@
 // JMIT ERP - Sales & Order-to-Cash (O2C) Full-Page Flow View Module
 import { store } from "../store";
-import { formatMoney } from "../utils";
+import { formatMoney, getPrintHeaderHtml, getPrintFooterHtml, renderAuditTrailSection, renderJEPreview, renderStockJournalPreview } from "../utils";
 
 export function renderO2C(container, pathParts) {
   const subPage = pathParts[1] || "sales-orders";
@@ -478,28 +478,10 @@ function renderSalesOrderForm(container) {
     }
   });
 }
-
 function renderSalesOrderDetails(container, orderId) {
   const so = store.getSalesOrders().find(s => s.id === orderId);
   if (!so) {
-    const maps = store.getSettings().glMappings;
-    const sub = so.subtotal || 0;
-    const tax = so.tax || 0;
-    const wht = so.withholding || 0;
-    const cogs = so.items.reduce((s,i)=>s+(store.getItem(i.itemId)?.cost||0)*i.qty,0);
-    const lines = [
-      {code:maps.arAccount,debit:so.total,credit:0},
-      {code:maps.whtAssetAccount,debit:wht,credit:0},
-      {code:so.salesAccountCode||maps.salesAccount,debit:0,credit:sub},
-      {code:maps.taxAccount,debit:0,credit:tax}
-    ];
-    (so.otherCharges||[]).forEach(ch=>{
-      if(ch.isVat||ch.isWht)return;
-      lines.push({code:ch.accountCode||"",debit:0,credit:ch.total||0});
-    });
-    lines.push({code:maps.cogsAccount,debit:cogs,credit:0});
-    lines.push({code:maps.inventoryAccount,debit:0,credit:cogs});
-  container.innerHTML = `<div class="card"><p class="text-danger">Order not found.</p></div>`;
+    container.innerHTML = `<div class="card"><p class="text-danger">Order not found.</p></div>`;
     return;
   }
 
@@ -507,13 +489,13 @@ function renderSalesOrderDetails(container, orderId) {
   const canApprove = store.checkPermission("o2c", "approve");
   const canDelete = store.checkPermission("o2c", "delete");
 
-  // Show Delivery and Invoice triggers only if user has write/create permission
   const hasWritePermission = store.checkPermission("o2c", "create");
   const showDeliveryBtn = so.status === "Approved" && hasWritePermission;
   const showInvoiceBtn = so.status === "Delivered" && hasWritePermission;
 
   container.innerHTML = `
     <div class="card animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
           <span style="font-size: 0.8rem; color: var(--color-primary); font-family: monospace; font-weight: 700;">${so.id}</span>
@@ -532,7 +514,8 @@ function renderSalesOrderDetails(container, orderId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Customer</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${so.customerName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(so.customerId).taxId}</div>
+          <div style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Address: ${store.getPartner(so.customerId)?.address || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 2px; color: var(--text-secondary);">TIN: ${store.getPartner(so.customerId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
@@ -613,10 +596,11 @@ function renderSalesOrderDetails(container, orderId) {
           <span class="text-success">${formatMoney(so.total)}</span>
         </div>
       </div>
+      ${getPrintFooterHtml()}
+      ${renderAuditTrailSection(so)}
     </div>
   `;
 
-  // Action listeners
   if (isDraft && canApprove) {
     container.querySelector("#approve-so-btn").addEventListener("click", () => {
       try {
@@ -1166,6 +1150,7 @@ function renderDeliveryDetails(container, deliveryId) {
 
   container.innerHTML = `
     <div class="card animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
           <span style="font-size: 0.8rem; color: var(--color-inventory); font-family: monospace; font-weight: 700;">${dn.id}</span>
@@ -1182,7 +1167,8 @@ function renderDeliveryDetails(container, deliveryId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Customer</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${dn.customerName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(dn.customerId).taxId}</div>
+          <div style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Address: ${store.getPartner(dn.customerId)?.address || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 2px; color: var(--text-secondary);">TIN: ${store.getPartner(dn.customerId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
@@ -1205,7 +1191,7 @@ function renderDeliveryDetails(container, deliveryId) {
       </div>
 
       <h4 style="font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 10px;">Items Dispatched</h4>
-      <div class="table-container">
+      <div class="table-container" style="margin-bottom: 24px;">
         <table>
           <thead>
             <tr>
@@ -1227,6 +1213,10 @@ function renderDeliveryDetails(container, deliveryId) {
           </tbody>
         </table>
       </div>
+
+      ${renderStockJournalPreview(dn.items, store.getWarehouse(dn.warehouseId).name, "External Customer", "OUT")}
+      ${getPrintFooterHtml()}
+      ${renderAuditTrailSection(dn)}
     </div>
   `;
 
@@ -1269,8 +1259,18 @@ function renderInvoiceDetails(container, invoiceId) {
   
   const showPayBtn = si.status === "Unpaid" && store.checkPermission("finance", "create");
 
+  // Get accounting entries for preview or posted
+  let jeLines: any[] = [];
+  if (isDraft) {
+    jeLines = store.getSalesInvoiceJELines(si);
+  } else {
+    const postedJe = store.getJournalEntries().find((je: any) => je.reference.includes(si.id));
+    if (postedJe) jeLines = postedJe.lines;
+  }
+
   container.innerHTML = `
     <div class="card animate-fade-in">
+      ${getPrintHeaderHtml()}
       <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
         <div>
           <span style="font-size: 0.8rem; color: var(--color-primary); font-family: monospace; font-weight: 700;">${si.id}</span>
@@ -1288,7 +1288,8 @@ function renderInvoiceDetails(container, invoiceId) {
         <div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Customer</div>
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">${si.customerName}</div>
-          <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">Company TIN: ${store.getPartner(si.customerId).taxId}</div>
+          <div style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Address: ${store.getPartner(si.customerId)?.address || "N/A"}</div>
+          <div style="font-size: 0.85rem; margin-top: 2px; color: var(--text-secondary);">TIN: ${store.getPartner(si.customerId)?.taxId || "N/A"}</div>
         </div>
         <div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
@@ -1373,6 +1374,10 @@ function renderInvoiceDetails(container, invoiceId) {
           <span class="text-success">${formatMoney(si.total)}</span>
         </div>
       </div>
+
+      ${renderJEPreview(jeLines)}
+      ${getPrintFooterHtml()}
+      ${renderAuditTrailSection(si)}
     </div>
   `;
 
